@@ -3,8 +3,7 @@ import { Suspense, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
 import { Sidebar } from '@app/layout/Sidebar'
-import { useLiveLeads } from '@modules/leads/hooks/useLiveLeads'
-import { useSession } from '@platform/auth/hooks/useSession'
+import { useSession } from '@hooks/useSession'
 import { env } from '@shared/lib/env'
 import { Loading } from '@shared/ui/Loading'
 import { Toaster } from '@shared/ui/Toast'
@@ -24,7 +23,6 @@ export function AppShell() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const [menuOpen, setMenuOpen] = useState(false)
-  useLiveLeads()
 
   const toggle = () => {
     setCollapsed((current) => {

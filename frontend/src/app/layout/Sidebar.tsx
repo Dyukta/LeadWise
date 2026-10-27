@@ -1,9 +1,10 @@
-import { BarChart3, Building2, FilePlus2, Gauge, LayoutDashboard, List, LogOut, Megaphone, Moon, Phone, PanelLeftClose, PanelLeftOpen, Settings, Share2, Sun, UserPlus, Users, type LucideIcon, ClipboardList, Target } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarClock, LayoutDashboard, List, LogOut, Megaphone, Moon, PanelLeftClose, PanelLeftOpen, Phone, PhoneCall, Settings, Sun, Trophy, UserPlus, Users, type LucideIcon } from 'lucide-react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
-import { useLeads } from '@modules/leads/hooks/useLeads'
-import { isOwner, type Session } from '@platform/auth/domain/session'
-import { useSignOut } from '@platform/auth/hooks/useSession'
+import { useFollowUps } from '@hooks/useFollowUps'
+import { useLeads } from '@hooks/useLeads'
+import { useSignOut } from '@hooks/useSession'
+import { isOwner, type Session } from '@logic/rules/session'
 import { cn } from '@shared/lib/cn'
 import { env } from '@shared/lib/env'
 import { useTheme } from '@shared/lib/theme'
@@ -48,16 +49,19 @@ export function Sidebar({
 
   const unassigned = useLeads('unassigned')
   const unassignedCount = unassigned.leads.length
+  const followUps = useFollowUps()
 
   const groups: NavGroup[] = [
     {
       heading: null,
-      items: [{ label: 'Overview', icon: LayoutDashboard, to: '/overview' }]
+      items: [
+        { label: 'Overview', icon: LayoutDashboard, to: '/overview' },
+        { label: 'My performance', icon: Trophy, to: '/performance' }
+      ]
     },
     {
       heading: 'Leads',
       items: [
-        { label: 'Add Leads', icon: FilePlus2, to: '/leads/new' },
         { label: 'My Leads', icon: Users, to: '/leads?view=mine', view: 'mine' },
         {
           label: 'Unassigned',
@@ -67,35 +71,30 @@ export function Sidebar({
           badge: unassignedCount
         },
         {
-          label: 'Assigned to Others',
-          icon: Share2,
-          to: '/leads?view=others',
-          view: 'others',
-          ownerOnly: true
+          label: 'Follow ups',
+          icon: CalendarClock,
+          to: '/follow-ups',
+          badge: followUps.overdue.length + followUps.today.length
         },
+        { label: 'Booked', icon: BadgeCheck, to: '/booked' },
+        { label: 'Calls', icon: Phone, to: '/calls' },
         {
           label: 'All Leads',
           icon: List,
           to: '/leads?view=all',
           view: 'all'
-        },
-        { label: 'Calls', icon: Phone, to: '/calls' },
-        { label: 'Campaigns', icon: Megaphone, to: '/campaigns', ownerOnly: true }
+        }
       ]
     },
     {
-      heading: 'Performance',
-      items: [
-        { label: 'Daily Report', icon: ClipboardList, to: '/reports' },
-        { label: 'My Performance', icon: Gauge, to: '/performance' },
-        { label: 'Team Performance', icon: BarChart3, to: '/performance/team', ownerOnly: true }
-      ]
+      heading: 'Marketing',
+      items: [{ label: 'Campaigns', icon: Megaphone, to: '/campaigns', ownerOnly: true }]
     },
     {
       heading: 'Management',
       items: [
+        { label: 'Team calls', icon: PhoneCall, to: '/team-calls', ownerOnly: true },
         { label: 'Projects', icon: Building2, to: '/projects', ownerOnly: true },
-        { label: 'KPIs & Departments', icon: Target, to: '/kpis', ownerOnly: true },
         { label: 'Users', icon: Users, to: '/users', ownerOnly: true },
         { label: 'Account', icon: Settings, to: '/account' }
       ]
@@ -107,9 +106,6 @@ export function Sidebar({
 
     if (item.view) {
       return location.pathname === path && (searchParams.get('view') ?? 'mine') === item.view
-    }
-    if (path === '/performance') {
-      return location.pathname === '/performance'
     }
     return location.pathname.startsWith(path)
   }
@@ -242,14 +238,14 @@ function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
       aria-checked={dark}
       onClick={toggle}
       title={hint}
-      className="relative mx-4 mb-3 grid grid-cols-2 rounded-full bg-white/8 p-1 ring-1 ring-inset ring-white/10"
+      className="relative mx-4 mb-3 grid grid-cols-2 rounded-full bg-white/8 p-1 ring-1 ring-inset ring-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/50"
     >
       <span
         aria-hidden
         className={cn(
           'absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full',
           'bg-gradient-to-r from-brand-600 to-brand-700 shadow-lg shadow-brand-950/50',
-          'transition-transform duration-300 ease-out',
+          'transition-transform duration-300 ease-out motion-reduce:transition-none',
           dark && 'translate-x-full'
         )}
       />

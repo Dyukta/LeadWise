@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Component, type ReactNode } from 'react'
 
-import { ApiError, HttpError } from '@shared/lib/http'
+import { supabase } from '@shared/lib/supabase'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -9,12 +9,14 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
-      retry: (failureCount, error) => {
-        if (error instanceof ApiError) return false
-        if (error instanceof HttpError && error.status < 500) return false
-        return failureCount < 2
-      }
+      retry: false
     }
+  }
+})
+
+supabase?.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+    void queryClient.invalidateQueries({ queryKey: ['auth'] })
   }
 })
 

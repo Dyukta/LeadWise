@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 
-import { isOwner } from '@platform/auth/domain/session'
-import { useSession } from '@platform/auth/hooks/useSession'
+import { useSession } from '@hooks/useSession'
+import { isOwner } from '@logic/rules/session'
 import { Loading } from '@shared/ui/Loading'
 
 function FullScreenLoading() {

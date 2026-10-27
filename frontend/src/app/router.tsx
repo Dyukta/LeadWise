@@ -3,65 +3,49 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { RequireAuth, RequireOwner } from '@app/guards'
 import { AppShell } from '@app/layout/AppShell'
-import { useLeadHandover } from '@modules/leads/hooks/useLeadHandover'
-import { LoginPage } from '@platform/auth/pages/LoginPage'
-import { ResetPasswordPage } from '@platform/auth/pages/ResetPasswordPage'
+import { LoginPage } from '@pages/login/LoginPage'
+import { SetPasswordPage } from '@pages/set-password/SetPasswordPage'
 
 const OverviewPage = lazy(() =>
-  import('@app/pages/OverviewPage').then((m) => ({ default: m.OverviewPage }))
+  import('@pages/overview/OverviewPage').then((m) => ({ default: m.OverviewPage }))
 )
 const LeadsPage = lazy(() =>
-  import('@modules/leads/pages/LeadsPage').then((m) => ({ default: m.LeadsPage }))
+  import('@pages/leads/LeadsPage').then((m) => ({ default: m.LeadsPage }))
 )
-const NewLeadsPage = lazy(() =>
-  import('@modules/leads/pages/NewLeadsPage').then((m) => ({ default: m.NewLeadsPage }))
+const FollowUpsPage = lazy(() =>
+  import('@pages/follow-ups/FollowUpsPage').then((m) => ({ default: m.FollowUpsPage }))
 )
-const CallsPage = lazy(() =>
-  import('@modules/leads/pages/CallsPage').then((m) => ({ default: m.CallsPage }))
+const PerformancePage = lazy(() =>
+  import('@pages/performance/PerformancePage').then((m) => ({ default: m.PerformancePage }))
 )
-const CampaignsPage = lazy(() =>
-  import('@modules/leads/pages/CampaignsPage').then((m) => ({ default: m.CampaignsPage }))
+const BookedPage = lazy(() =>
+  import('@pages/booked/BookedPage').then((m) => ({ default: m.BookedPage }))
 )
 const ProjectsPage = lazy(() =>
-  import('@modules/leads/pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
+  import('@pages/projects/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
 )
-const KpiAdminPage = lazy(() =>
-  import('@modules/performance/pages/KpiAdminPage').then((m) => ({ default: m.KpiAdminPage }))
+const CampaignsPage = lazy(() =>
+  import('@pages/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage }))
 )
-const MyPerformancePage = lazy(() =>
-  import('@modules/performance/pages/MyPerformancePage').then((m) => ({
-    default: m.MyPerformancePage
-  }))
+const CallsPage = lazy(() =>
+  import('@pages/calls/CallsPage').then((m) => ({ default: m.CallsPage }))
 )
-const ReportsPage = lazy(() =>
-  import('@modules/performance/pages/ReportsPage').then((m) => ({ default: m.ReportsPage }))
-)
-const TeamPerformancePage = lazy(() =>
-  import('@modules/performance/pages/TeamPerformancePage').then((m) => ({
-    default: m.TeamPerformancePage
-  }))
+const TeamCallsPage = lazy(() =>
+  import('@pages/calls/CallsPage').then((m) => ({ default: m.TeamCallsPage }))
 )
 const AccountPage = lazy(() =>
-  import('@platform/auth/pages/AccountPage').then((m) => ({ default: m.AccountPage }))
-)
-const PrivacyPage = lazy(() =>
-  import('@app/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage }))
+  import('@pages/account/AccountPage').then((m) => ({ default: m.AccountPage }))
 )
 const UsersPage = lazy(() =>
-  import('@platform/users/pages/UsersPage').then((m) => ({ default: m.UsersPage }))
+  import('@pages/users/UsersPage').then((m) => ({ default: m.UsersPage }))
 )
-
-function UsersScreen() {
-  const moveLeads = useLeadHandover()
-  return <UsersPage moveLeads={moveLeads} />
-}
 
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
         <Route
           element={
             <RequireAuth>
@@ -72,8 +56,10 @@ export function AppRouter() {
           <Route index element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<OverviewPage />} />
           <Route path="/leads" element={<LeadsPage />} />
-          <Route path="/leads/new" element={<NewLeadsPage />} />
-          <Route path="/calls" element={<CallsPage />} />
+          <Route path="/follow-ups" element={<FollowUpsPage />} />
+          <Route path="/booked" element={<BookedPage />} />
+          <Route path="/performance" element={<PerformancePage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route
             path="/campaigns"
             element={
@@ -82,23 +68,12 @@ export function AppRouter() {
               </RequireOwner>
             }
           />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/performance" element={<MyPerformancePage />} />
+          <Route path="/calls" element={<CallsPage />} />
           <Route
-            path="/performance/team"
+            path="/team-calls"
             element={
               <RequireOwner>
-                <TeamPerformancePage />
-              </RequireOwner>
-            }
-          />
-          <Route
-            path="/kpis"
-            element={
-              <RequireOwner>
-                <KpiAdminPage />
+                <TeamCallsPage />
               </RequireOwner>
             }
           />
@@ -114,7 +89,7 @@ export function AppRouter() {
             path="/users"
             element={
               <RequireOwner>
-                <UsersScreen />
+                <UsersPage />
               </RequireOwner>
             }
           />
