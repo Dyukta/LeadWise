@@ -1,15 +1,10 @@
 import cors from 'cors'
 import express from 'express'
 
-import { authenticate } from './auth.ts'
 import { config } from './config.ts'
 import { db } from './db.ts'
 import { errorHandler } from './lib/errors.ts'
-import { campaignsRouter } from './routes/campaigns.ts'
-import { leadsRouter } from './routes/leads.ts'
-import { performanceRouter } from './routes/performance.ts'
-import { projectsRouter } from './routes/projects.ts'
-import { usersRouter } from './routes/users.ts'
+import { rpcRouter } from './routes/rpc.ts'
 
 export function createApp() {
   const app = express()
@@ -23,7 +18,8 @@ export function createApp() {
       maxAge: 600
     })
   )
-  app.use(express.json({ limit: '1mb' }))
+  // Lead DGC's client posts JSON as text/plain.
+  app.use(express.json({ limit: '5mb', type: ['application/json', 'text/plain'] }))
 
   app.get('/api/health', async (_req, res) => {
     const started = Date.now()
@@ -41,14 +37,7 @@ export function createApp() {
     })
   })
 
-  const api = express.Router()
-  api.use(authenticate)
-  api.use('/leads', leadsRouter)
-  api.use('/campaigns', campaignsRouter)
-  api.use('/projects', projectsRouter)
-  api.use('/performance', performanceRouter)
-  api.use('/users', usersRouter)
-  app.use('/api', api)
+  app.use('/api/rpc', rpcRouter)
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ ok: false, error: 'No such endpoint.' })
