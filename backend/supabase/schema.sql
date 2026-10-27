@@ -104,11 +104,3 @@ create trigger sync_user_email_on_auth
   for each row
   when (old.email is distinct from new.email)
   execute function public.sync_user_email();
-
-create policy "authenticated can receive lead changes"
-  on realtime.messages for select
-  to authenticated
-  using (
-    (select realtime.topic()) = 'leads'
-    and realtime.messages.extension in ('broadcast')
-  );
