@@ -17,8 +17,9 @@
 
     "paths": {
       "@app/*": ["./src/app/*"],
-      "@modules/*": ["./src/modules/*"],
-      "@platform/*": ["./src/platform/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@logic/*": ["./src/logic/*"],
+      "@pages/*": ["./src/pages/*"],
       "@shared/*": ["./src/shared/*"]
     },
 

@@ -11,62 +11,39 @@ const src = (p: string) => fileURLToPath(new URL(`./src/${p}`, import.meta.url))
 const BACKEND = fileURLToPath(new URL('../backend', import.meta.url))
 const SHARED = {
   VITE_SUPABASE_URL: 'SUPABASE_URL',
-  VITE_SUPABASE_PUBLISHABLE_KEY: 'SUPABASE_PUBLISHABLE_KEY',
+  VITE_SUPABASE_ANON_KEY: 'SUPABASE_PUBLISHABLE_KEY',
   VITE_APP_NAME: 'APP_NAME',
   VITE_APP_TIME_ZONE: 'APP_TIME_ZONE',
-  VITE_CONTACT_EMAIL: 'CONTACT_EMAIL',
-}
-// Optional: the demo panel on the login page. Leave DEMO_PASSWORD unset in production.
-const DEMO = {
   VITE_DEMO_OWNER_EMAIL: 'DEMO_OWNER_EMAIL',
   VITE_DEMO_EMPLOYEE_EMAIL: 'DEMO_EMPLOYEE_EMAIL',
-  VITE_DEMO_PASSWORD: 'DEMO_PASSWORD',
+  VITE_DEMO_PASSWORD: 'DEMO_PASSWORD'
 }
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, BACKEND, '')
-  for (const [vite, name] of Object.entries({ ...SHARED, ...DEMO })) {
+  for (const [vite, name] of Object.entries(SHARED)) {
     if (!process.env[vite]?.trim() && env[name]?.trim()) process.env[vite] = env[name].trim()
   }
-  const missing = Object.entries(SHARED)
-    .filter(([vite]) => !process.env[vite]?.trim() && !env[vite]?.trim())
-    .map(([, name]) => name)
-  if (command === 'build' && missing.length > 0) {
-    throw new Error(`Set these in backend/.env before building: ${missing.join(', ')}`)
-  }
-  const API_PROXY_TARGET = env.API_PROXY_TARGET || `http://localhost:${env.PORT || 4000}`
+  // The API serves the Lead DGC actions at /api/rpc; in development Vite forwards /api to it.
+  process.env.VITE_API_URL ||= env.VITE_API_URL || '/api/rpc'
 
   return {
     envDir: BACKEND,
     plugins: [react(), tailwindcss()],
-    // Pre-bundle everything up front: these are only reached through lazy() routes,
-    // so without this Vite re-optimizes mid-session and the page ends up with two
-    // React copies (stale ?v= hash still cached) -> "Invalid hook call".
     optimizeDeps: {
-      include: [
-        '@supabase/supabase-js',
-        '@tanstack/react-query',
-        'framer-motion',
-        'libphonenumber-js/mobile',
-        'lucide-react',
-        'react',
-        'react-dom/client',
-        'react-router-dom',
-      ],
+      include: ['@supabase/supabase-js', '@tanstack/react-query', 'lucide-react', 'react', 'react-dom/client', 'react-router-dom']
     },
     server: {
-      proxy: { '/api': API_PROXY_TARGET },
-    },
-    build: {
-      assetsInlineLimit: (file) => (file.includes('flag-icons') ? false : undefined),
+      proxy: { '/api': env.API_PROXY_TARGET || `http://localhost:${env.PORT || 4000}` }
     },
     resolve: {
       alias: {
         '@app': src('app'),
-        '@modules': src('modules'),
-        '@platform': src('platform'),
-        '@shared': src('shared'),
-      },
-    },
+        '@hooks': src('hooks'),
+        '@logic': src('logic'),
+        '@pages': src('pages'),
+        '@shared': src('shared')
+      }
+    }
   }
 })

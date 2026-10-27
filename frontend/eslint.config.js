@@ -7,36 +7,17 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
-const featureRoots = [
-  { root: './src/modules/leads', types: './leadTypes.ts' },
-  { root: './src/modules/performance', types: './performanceTypes.ts' },
-  { root: './src/platform/auth', types: null },
-  { root: './src/platform/users', types: './userTypes.ts' },
-]
-
 const layerZones = [
-  ...featureRoots.flatMap(({ root, types }) => {
-    const exceptTypes = types ? { except: [types] } : {}
-
-    return [
-      { target: `${root}/api`, from: `${root}/hooks` },
-      { target: `${root}/api`, from: `${root}/components` },
-      { target: `${root}/api`, from: `${root}/pages` },
-      { target: `${root}/hooks`, from: `${root}/components` },
-      { target: `${root}/hooks`, from: `${root}/pages` },
-      { target: `${root}/components`, from: `${root}/api`, ...exceptTypes },
-      { target: `${root}/pages`, from: `${root}/api`, ...exceptTypes },
-    ]
-  }),
-
-  { target: './src/modules/leads', from: './src/modules/performance' },
-  { target: './src/modules/performance', from: './src/modules/leads' },
-
+  { target: './src/logic', from: './src/hooks' },
+  { target: './src/logic', from: './src/pages' },
+  { target: './src/logic', from: './src/app' },
+  { target: './src/hooks', from: './src/pages' },
+  { target: './src/hooks', from: './src/app' },
+  { target: './src/pages', from: './src/logic/*/*Api.ts' },
   { target: './src/shared', from: './src/app' },
-  { target: './src/shared', from: './src/modules' },
-  { target: './src/shared', from: './src/platform' },
-
-  { target: './src/platform', from: './src/modules' },
+  { target: './src/shared', from: './src/pages' },
+  { target: './src/shared', from: './src/hooks' },
+  { target: './src/shared', from: './src/logic' },
 ]
 
 export default defineConfig([
@@ -66,7 +47,7 @@ export default defineConfig([
         'warn',
         {
           groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index']],
-          pathGroups: [{ pattern: '@(@app|@modules|@platform|@shared)/**', group: 'internal' }],
+          pathGroups: [{ pattern: '@(@app|@hooks|@logic|@pages|@shared)/**', group: 'internal' }],
           'newlines-between': 'always',
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
@@ -74,19 +55,51 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/domain/**/*.ts'],
+    files: ['src/logic/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['react', 'react-dom', 'react-router*', '@tanstack/*', '@supabase/*'],
-              message: 'domain/ must stay pure: no React, no data fetching.',
+              group: ['react', 'react-dom', 'react-router*', '@tanstack/*'],
+              message: 'logic is plain TypeScript: React and React Query belong in src/hooks.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/logic/rules/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'react-dom', 'react-router*', '@tanstack/*'],
+              message: 'logic/rules must stay pure: no React, no data fetching.',
             },
             {
-              group: ['@app/*', '@modules/*', '@platform/*', '@shared/*', '../*'],
-              message: 'domain/ imports nothing outside its own folder.',
+              group: ['@app/*', '@hooks/*', '@logic/*', '@pages/*', '@shared/*', '../*'],
+              message: 'logic/rules imports nothing outside its own folder.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/pages/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@tanstack/*', '@shared/lib/backend', '@shared/lib/supabase', '@shared/lib/queryKeys'],
+              message: 'pages are UI only: load and save data through a hook in src/hooks.',
             },
           ],
         },
