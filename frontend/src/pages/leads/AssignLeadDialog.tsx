@@ -1,13 +1,11 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { Check, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
-import type { Lead, RosterMember } from '@modules/leads/api/leadTypes'
-import { assigneeNames, canAssign } from '@modules/leads/domain/transfer'
-import { useWriteLead } from '@modules/leads/hooks/useLeadMutations'
+import { useAssignLeads } from '@hooks/useLeadMutations'
+import type { Lead, RosterMember } from '@logic/leads/leadTypes'
+import { assigneeNames, canAssign } from '@logic/rules/transfer'
 import { cn } from '@shared/lib/cn'
 import { pluralize } from '@shared/lib/format'
-import { queryKeys } from '@shared/lib/queryKeys'
 import { toast } from '@shared/lib/toast'
 import { Button } from '@shared/ui/Button'
 import { Modal } from '@shared/ui/Modal'
@@ -23,8 +21,7 @@ export function AssignLeadDialog({
   onAssigned: () => void
   onClose: () => void
 }) {
-  const queryClient = useQueryClient()
-  const write = useWriteLead({ silent: true })
+  const assign = useAssignLeads()
 
   const isBulk = leads.length > 1
   const single = leads[0]
@@ -35,7 +32,7 @@ export function AssignLeadDialog({
       : single.assignees.map((person) => person.id).filter((id): id is string => id !== null)
   )
   const [failures, setFailures] = useState<string[]>([])
-  const [busy, setBusy] = useState(false)
+  const busy = assign.isPending
 
   const toggle = (id: string) =>
     setPicked((current) =>
@@ -55,51 +52,25 @@ export function AssignLeadDialog({
 
   const targets = roster.filter((owner) => picked.includes(owner.id))
 
-  const submit = async () => {
+  const submit = () => {
     if (blocked || targets.length === 0 || eligible.length === 0 || busy) return
     setFailures([])
-    setBusy(true)
-
-    const byId = new Map(eligible.map((lead) => [lead.id, lead.name]))
-    const refused = [...ineligible]
-    let done = 0
-
-    try {
-      const result = await write.mutateAsync({
-        action: 'assign',
-        leadIds: eligible.map((lead) => lead.id),
-        toUserIds: targets.map((owner) => owner.id),
-        toUserNames: targets.map((owner) => owner.name)
-      })
-      const results = ('results' in result && result.results) || []
-      if (results.length === 0) {
-        done = eligible.length
-      } else {
-        for (const entry of results) {
-          if (entry.ok && !entry.noop) done += 1
-          else {
-            refused.push(
-              `${byId.get(entry.leadId) ?? entry.leadId}: ${entry.error ?? 'Nothing changed.'}`
-            )
+    assign.mutate(
+      { leads: eligible, people: targets },
+      {
+        onSuccess: ({ done, refused }) => {
+          const skipped = [...ineligible, ...refused]
+          if (skipped.length === 0) {
+            toast(`${pluralize(done, 'lead')} assigned`)
+            onAssigned()
+            onClose()
+            return
           }
+          setFailures(skipped)
+          if (done > 0) toast(`${done} of ${pluralize(leads.length, 'lead')} assigned`)
         }
       }
-    } catch (error) {
-      for (const lead of eligible) refused.push(`${lead.name}: ${(error as Error).message}`)
-    }
-
-    void queryClient.invalidateQueries({ queryKey: queryKeys.leads.all })
-    setBusy(false)
-
-    if (refused.length === 0) {
-      toast(`${pluralize(done, 'lead')} assigned`)
-      onAssigned()
-      onClose()
-      return
-    }
-
-    setFailures(refused)
-    if (done > 0) toast(`${done} of ${pluralize(leads.length, 'lead')} assigned`)
+    )
   }
 
   const anyOwned = leads.some((lead) => lead.assignees.length > 0)
@@ -116,7 +87,7 @@ export function AssignLeadDialog({
             Cancel
           </Button>
           <Button
-            onClick={() => void submit()}
+            onClick={submit}
             disabled={Boolean(blocked) || targets.length === 0 || busy}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}

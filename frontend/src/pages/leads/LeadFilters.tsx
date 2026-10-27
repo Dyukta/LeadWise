@@ -1,20 +1,21 @@
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { useState } from 'react'
 
-import type { LeadFilters as Filters } from '@modules/leads/api/leadTypes'
-import { LEAD_TIMINGS, timingLabel } from '@modules/leads/domain/followUp'
-import { LEAD_PRIORITIES, priorityLabel } from '@modules/leads/domain/priority'
-import { BUDGET_BANDS } from '@modules/leads/domain/requirements'
+import type { LeadFilters as Filters } from '@logic/leads/leadTypes'
+import { LEAD_TIMINGS, timingLabel } from '@logic/rules/followUp'
+import { LEAD_PRIORITIES, priorityLabel } from '@logic/rules/priority'
+import { periodOptions } from '@shared/lib/date'
 import { Button } from '@shared/ui/Button'
-import { Input } from '@shared/ui/Input'
 import { Modal } from '@shared/ui/Modal'
+import { SearchInput } from '@shared/ui/SearchInput'
 import { Select } from '@shared/ui/Select'
 
-const budgetOptions = BUDGET_BANDS.map((band) => ({ value: band.id, label: band.label }))
 const timingOptions = LEAD_TIMINGS.map((value) => ({ value, label: timingLabel(value) }))
 const priorityOptions = LEAD_PRIORITIES.map((value) => ({ value, label: priorityLabel(value) }))
-
-const toOptions = (values: string[]) => values.map((value) => ({ value, label: value }))
+const repeatedOptions = [
+  { value: 'yes', label: 'Repeated only' },
+  { value: 'no', label: 'Not repeated' }
+]
 
 type Setter = (key: keyof Filters) => (value: string) => void
 
@@ -23,7 +24,9 @@ type SelectProps = {
   months: string[]
   month: string
   onMonthChange: (month: string) => void
-  configurations: string[]
+  projects: string[]
+  sources: { value: string; label: string }[]
+  campaigns: { value: string; label: string }[]
 }
 
 export function LeadFilters({
@@ -36,21 +39,18 @@ export function LeadFilters({
   const set: Setter = (key) => (value) => onChange({ ...filters, [key]: value || undefined })
 
   const activeCount = Object.entries(filters).filter(
-    ([key, value]) => key !== 'search' && key !== 'project' && value
+    ([key, value]) => key !== 'search' && value
   ).length
 
   const selects = <FilterSelects filters={filters} set={set} {...rest} />
 
   const searchField = (
-    <div className="relative flex-1">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-      <Input
-        className="pl-9"
-        aria-label="Search leads"
-        value={filters.search ?? ''}
-        onChange={(event) => set('search')(event.target.value)}
-      />
-    </div>
+    <SearchInput
+      className="flex-1"
+      aria-label="Search leads"
+      value={filters.search ?? ''}
+      onChange={(event) => set('search')(event.target.value)}
+    />
   )
 
   return (
@@ -86,7 +86,7 @@ export function LeadFilters({
           {(activeCount > 0 || filters.search) && (
             <button
               type="button"
-              onClick={() => onChange({ project: filters.project })}
+              onClick={() => onChange({})}
               className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
             >
               <X className="h-3.5 w-3.5" />
@@ -94,7 +94,7 @@ export function LeadFilters({
             </button>
           )}
         </header>
-        <div className="grid grid-cols-2 items-end gap-4 px-5 py-4 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="grid grid-cols-2 items-end gap-4 px-5 py-4 lg:grid-cols-4 xl:grid-cols-9">
           <div className="lg:col-span-2">{searchField}</div>
           {selects}
         </div>
@@ -110,7 +110,7 @@ export function LeadFilters({
               <Button
                 variant="ghostDanger"
                 onClick={() => {
-                  onChange({ search: filters.search, project: filters.project })
+                  onChange({ search: filters.search })
                   setSheetOpen(false)
                 }}
               >
@@ -133,30 +133,41 @@ function FilterSelects({
   months,
   month,
   onMonthChange,
-  configurations
+  projects,
+  sources,
+  campaigns
 }: SelectProps & { set: Setter }) {
   return (
     <>
       <Select
         label="Month"
         placeholder="All months"
-        options={toOptions(months)}
+        options={periodOptions(months)}
         value={month}
         onChange={onMonthChange}
       />
       <Select
-        label="Budget"
-        placeholder="Any budget"
-        options={budgetOptions}
-        value={filters.budgetBand ?? ''}
-        onChange={set('budgetBand')}
+        label="Project"
+        placeholder="All projects"
+        options={projects.map((name) => ({ value: name, label: name }))}
+        value={filters.project ?? ''}
+        onChange={set('project')}
       />
       <Select
-        label="Configuration"
-        placeholder="Any config"
-        options={toOptions(configurations)}
-        value={filters.configuration ?? ''}
-        onChange={set('configuration')}
+        label="Source"
+        placeholder="All sources"
+        options={sources}
+        value={filters.source ?? ''}
+        searchable={sources.length > 8}
+        onChange={set('source')}
+      />
+      <Select
+        label="Campaign"
+        placeholder="All campaigns"
+        options={campaigns}
+        value={filters.campaign ?? ''}
+        searchable={campaigns.length > 8}
+        onChange={set('campaign')}
       />
       <Select
         label="Priority"
@@ -164,6 +175,13 @@ function FilterSelects({
         options={priorityOptions}
         value={filters.priority ?? ''}
         onChange={set('priority')}
+      />
+      <Select
+        label="Repeated"
+        placeholder="All leads"
+        options={repeatedOptions}
+        value={filters.repeated ?? ''}
+        onChange={set('repeated')}
       />
       <Select
         label="Sort by"

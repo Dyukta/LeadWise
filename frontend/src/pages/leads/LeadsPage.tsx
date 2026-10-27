@@ -1,22 +1,22 @@
-import { Building2, CalendarClock, Flame, UserPlus, Users } from 'lucide-react'
+import { CalendarClock, FileSpreadsheet, Flame, UserPlus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import type { Lead, LeadFilters as Filters, LeadsView } from '@modules/leads/api/leadTypes'
-import { AssignLeadDialog } from '@modules/leads/components/AssignLeadDialog'
-import { EditLeadDialog } from '@modules/leads/components/EditLeadDialog'
-import { LeadDrawer } from '@modules/leads/components/LeadDrawer'
-import { LeadFilters } from '@modules/leads/components/LeadFilters'
-import { LeadTable } from '@modules/leads/components/LeadTable'
-import { distinctValues } from '@modules/leads/domain/requirements'
-import { useLeads } from '@modules/leads/hooks/useLeads'
-import { useActiveProjectNames, useMyProjectNames } from '@modules/leads/hooks/useProjects'
-import { allowedLeadsViews } from '@platform/auth/domain/session'
-import { useSession } from '@platform/auth/hooks/useSession'
+import { useLeads } from '@hooks/useLeads'
+import { useActiveProjectNames, useMyProjectNames } from '@hooks/useProjects'
+import { useSession } from '@hooks/useSession'
+import type { Lead, LeadFilters as Filters, LeadsView } from '@logic/leads/leadTypes'
+import { distinctValues } from '@logic/rules/requirements'
+import { allowedLeadsViews } from '@logic/rules/session'
+import { AssignLeadDialog } from '@pages/leads/AssignLeadDialog'
+import { EditLeadDialog } from '@pages/leads/EditLeadDialog'
+import { ImportLeadsDialog } from '@pages/leads/ImportLeadsDialog'
+import { LeadDrawer } from '@pages/leads/LeadDrawer'
+import { LeadFilters } from '@pages/leads/LeadFilters'
+import { LeadTable } from '@pages/leads/LeadTable'
 import { daysUntil } from '@shared/lib/date'
 import { pluralize } from '@shared/lib/format'
 import { Button } from '@shared/ui/Button'
-import { Dropdown } from '@shared/ui/Dropdown'
 import { SegmentedControl } from '@shared/ui/SegmentedControl'
 import { StatTile } from '@shared/ui/StatTile'
 
@@ -60,6 +60,7 @@ export function LeadsPage() {
   const [selected, setSelected] = useState<Lead | null>(null)
   const [assigning, setAssigning] = useState<Lead[] | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const assign = (leads: Lead[]) => {
@@ -81,6 +82,15 @@ export function LeadsPage() {
     )
     return [...allProjects, ...strays].sort((a, b) => a.localeCompare(b))
   }, [myProjects, allProjects, rows])
+  const sourceOptions = useMemo(
+    () => distinctValues(leads.data?.leads ?? [], (lead) => lead.source).map((value) => ({ value, label: value })),
+    [leads.data]
+  )
+  const campaignOptions = useMemo(
+    () =>
+      distinctValues(leads.data?.leads ?? [], (lead) => lead.campaign ?? null).map((value) => ({ value, label: value })),
+    [leads.data]
+  )
   const highPriority = useMemo(
     () => rows.filter((lead) => lead.priority === 'high').length,
     [rows]
@@ -96,12 +106,15 @@ export function LeadsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Leads</h1>
+        <Button variant="secondary" onClick={() => setUploading(true)}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Upload Excel
+        </Button>
       </header>
       <div className="flex flex-wrap items-stretch gap-3">
         <SegmentedControl
-          className="scrollbar-thin w-full max-w-full overflow-x-auto sm:w-auto"
           value={view}
           onChange={(option) => {
             setSearchParams(project ? { view: option, project } : { view: option })
@@ -109,23 +122,6 @@ export function LeadsPage() {
           }}
           options={views.map((option) => ({ value: option, label: viewLabels[option] }))}
         />
-        {projectNames.length > 0 && (
-          <Dropdown
-            className="w-56 max-sm:w-full"
-            icon={Building2}
-            tone="brand"
-            active={Boolean(filters.project)}
-            value={filters.project ?? ''}
-            onChange={(next) => {
-              setProject(next)
-              setSelectedIds([])
-            }}
-            options={[
-              { value: '', label: 'All projects' },
-              ...projectNames.map((name) => ({ value: name, label: name }))
-            ]}
-          />
-        )}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
         <StatTile
@@ -159,12 +155,14 @@ export function LeadsPage() {
           setSelectedIds([])
         }}
         months={leads.months}
+        projects={projectNames}
+        sources={sourceOptions}
+        campaigns={campaignOptions}
         month={month}
         onMonthChange={(next) => {
           setMonth(next)
           setSelectedIds([])
         }}
-        configurations={distinctValues(rows, (lead) => lead.configuration)}
       />
 
       {selectedIds.length > 0 && (
@@ -211,6 +209,8 @@ export function LeadsPage() {
       />
 
       {editing && <EditLeadDialog lead={editing} onClose={() => setEditing(null)} />}
+
+      {uploading && <ImportLeadsDialog onClose={() => setUploading(false)} />}
 
       {assigning && (
         <AssignLeadDialog
