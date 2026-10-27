@@ -25,6 +25,11 @@ function setTheme(theme: Theme): void {
 
 export function useTheme(): [Theme, () => void] {
   const theme = useSyncExternalStore(subscribe, read, () => 'light' as Theme)
-  const toggle = useCallback(() => setTheme(read() === 'dark' ? 'light' : 'dark'), [])
+  const toggle = useCallback(() => {
+    const next = read() === 'dark' ? 'light' : 'dark'
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce || !('startViewTransition' in document)) return setTheme(next)
+    document.startViewTransition(() => setTheme(next))
+  }, [])
   return [theme, toggle]
 }

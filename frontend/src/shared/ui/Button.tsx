@@ -2,20 +2,19 @@ import type { ButtonHTMLAttributes } from 'react'
 
 import { cn } from '@shared/lib/cn'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'ghostDanger' | 'danger'
+type Variant = 'primary' | 'secondary' | 'ghostDanger' | 'danger'
 type Size = 'sm' | 'md'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600',
   secondary:
     'bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-slate-400',
-  ghost: 'text-slate-700 hover:bg-slate-100 focus-visible:outline-slate-400',
   ghostDanger: 'text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:outline-red-500',
   danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-600'
 }
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3 text-sm',
+  sm: 'h-9 px-3 text-sm',
   md: 'h-10 px-4 text-sm'
 }
 

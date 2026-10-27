@@ -29,27 +29,30 @@ export function formatDate(value: string | number | Date | null | undefined): st
   return date ? dateFormatter.format(date) : 'N/A'
 }
 
+const timeFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: APP_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit'
+})
+
+export function formatTime(value: string | number | Date | null | undefined): string {
+  if (value == null) return 'N/A'
+  const date = toDate(value)
+  return date ? timeFormatter.format(date) : 'N/A'
+}
+
 export function formatDateTime(value: string | number | Date | null | undefined): string {
   if (value == null) return 'N/A'
   const date = toDate(value)
   return date ? dateTimeFormatter.format(date) : 'N/A'
 }
 
-export function currentPeriod(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: APP_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit'
-  }).format(now)
-  return parts.slice(0, 7)
-}
-
-export function parsePeriod(period: string): { year: number; month: number } {
+function parsePeriod(period: string): { year: number; month: number } {
   const [year, month] = period.split('-').map(Number)
   return { year, month }
 }
 
-export function periodLabel(period: string, monthStyle: 'long' | 'short' = 'long'): string {
+function periodLabel(period: string, monthStyle: 'long' | 'short' = 'long'): string {
   const { year, month } = parsePeriod(period)
   if (!year || !month) return period
 
@@ -60,35 +63,6 @@ export function periodLabel(period: string, monthStyle: 'long' | 'short' = 'long
 
 export function periodOptions(periods: readonly string[] = []): { label: string; value: string }[] {
   return periods.map((value) => ({ label: periodLabel(value, 'short'), value }))
-}
-
-export const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-] as const
-
-export function makePeriod(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
-
-export function lastPeriods(period: string, count: number): string[] {
-  const { year, month } = parsePeriod(period)
-  if (!year || !month) return []
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(year, month - 1 - (count - 1 - index), 1)
-    return makePeriod(date.getFullYear(), date.getMonth() + 1)
-  })
 }
 
 export function toKey(date: Date): string {

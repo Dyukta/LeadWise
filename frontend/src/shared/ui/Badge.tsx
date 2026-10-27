@@ -3,7 +3,6 @@ import type { ReactNode } from 'react'
 import { cn } from '@shared/lib/cn'
 
 export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
-type BadgeSize = 'sm' | 'md'
 
 const tones: Record<BadgeTone, string> = {
   neutral: 'text-slate-600 bg-slate-100 border-slate-200',
@@ -13,38 +12,21 @@ const tones: Record<BadgeTone, string> = {
   danger: 'text-red-700 bg-red-50 border-red-200'
 }
 
-const sizes: Record<BadgeSize, string> = {
-  sm: 'px-2.5 py-1 text-2xs',
-  md: 'px-3.5 py-1.5 text-xs'
-}
-
-type BadgeProps = {
-  children: ReactNode
-  tone?: BadgeTone
-  size?: BadgeSize
-  color?: string
-  className?: string
-}
-
 export function Badge({
   children,
   tone = 'neutral',
-  size = 'md',
-  color,
-  className
-}: BadgeProps) {
-  const style = color
-    ? { color, backgroundColor: `${color}15`, borderColor: `${color}50` }
-    : undefined
-
+  size = 'md'
+}: {
+  children: ReactNode
+  tone?: BadgeTone
+  size?: 'sm' | 'md'
+}) {
   return (
     <span
-      style={style}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border font-semibold tracking-normal',
-        sizes[size],
-        !color && tones[tone],
-        className
+        size === 'sm' ? 'px-2.5 py-1 text-2xs' : 'px-3.5 py-1.5 text-xs',
+        tones[tone]
       )}
     >
       {children}
