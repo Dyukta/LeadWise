@@ -275,7 +275,7 @@ function WithBoldEmail({ text }: { text: string }) {
   return (
     <>
       {text.slice(0, match.index)}
-      <strong className="font-semibold break-words text-ink">{match[0]}</strong>
+      <strong className="font-semibold wrap-break-words text-ink">{match[0]}</strong>
       {text.slice(match.index + match[0].length)}
     </>
   )
