@@ -1,4 +1,4 @@
-export const LEAD_STATUSES = ['new', 'contacted', 'ringing','site_visit_scheduled','site_visit_done','revisit_scheduled','booked', 'documentation','agreement_done','disbursement_done','closed','lost'] as const
+export const LEAD_STATUSES = ['new', 'call_after_some_time', 'call_back_later', 'interested', 'invalid_number', 'lost', 'not_answered', 'not_interested', 'not_reachable', 'reg_done', 'sent_details', 'switched_off', 'closed'] as const
 
 const LEAD_PRIORITIES = ['high', 'medium', 'low'] as const
 
@@ -16,10 +16,6 @@ export function isTerminalStatus(status: string): boolean {
 
 export function isLeadStatus(value: unknown): value is (typeof LEAD_STATUSES)[number] {
   return typeof value === 'string' && (LEAD_STATUSES as readonly string[]).includes(value)
-}
-
-export function isPriority(value: unknown): value is Priority {
-  return typeof value === 'string' && (LEAD_PRIORITIES as readonly string[]).includes(value)
 }
 
 export function priorityForPossession(possession: string | null): Priority | null {

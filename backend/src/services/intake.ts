@@ -1,6 +1,5 @@
 import { db, must, rows as allRows } from '../db.ts'
 import { todayKey } from '../lib/dates.ts'
-import { announceLeadsChanged } from '../realtime.ts'
 import { phoneKey, priorityForPossession } from './leadRules.ts'
 
 export type IncomingLead = {
@@ -10,8 +9,6 @@ export type IncomingLead = {
   source?: string | null
   sourceName?: string | null
   project?: string | null
-  budget?: number | string | null
-  configuration?: string | null
   possession?: string | null
   campaign?: string | null
   metaId?: string | null
@@ -49,7 +46,6 @@ export async function addLeads(incoming: IncomingLead[], by: Actor) {
     }
     taken.set(key, 'new')
 
-    const budget = row.budget === '' || row.budget == null ? null : Number(row.budget)
     const possession = clean(row.possession)
     fresh.push({
       lead_date: row.date || (row.at ? todayKey(new Date(row.at)) : today),
@@ -60,15 +56,13 @@ export async function addLeads(incoming: IncomingLead[], by: Actor) {
       source_name: clean(row.sourceName),
       project: clean(row.project),
       possession,
-      budget: budget !== null && Number.isFinite(budget) ? budget : null,
-      configuration: clean(row.configuration),
       campaign: clean(row.campaign),
       meta_id: row.metaId ?? null,
       status: 'new',
       priority: priorityForPossession(possession),
-      created_by: by.name,
       created_at: at,
-      updated_at: at
+      updated_at: at,
+      touched_at: at
     })
   }
 
@@ -85,7 +79,6 @@ export async function addLeads(incoming: IncomingLead[], by: Actor) {
     ...repeats
   ]
   if (events.length > 0) must(await db.from('lead_events').insert(events))
-  if (events.length > 0) void announceLeadsChanged()
 
   return {
     added: added.length,
