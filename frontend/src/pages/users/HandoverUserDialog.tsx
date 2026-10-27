@@ -1,59 +1,35 @@
 import { useState } from 'react'
 
-import type { AppUser, MoveLeads } from '@platform/users/api/userTypes'
-import { useUpdateUser } from '@platform/users/hooks/useUsers'
-import { pluralize } from '@shared/lib/format'
-import { toast } from '@shared/lib/toast'
+import { useHandOver } from '@hooks/useUsers'
+import { userName as nameOf, type AppUser } from '@logic/users/userTypes'
 import { Button } from '@shared/ui/Button'
 import { Checkbox } from '@shared/ui/Checkbox'
 import { Modal } from '@shared/ui/Modal'
 import { Select } from '@shared/ui/Select'
 
-const nameOf = (user: AppUser) => user.fullName || user.email
-
 export function HandoverUserDialog({
   user,
   users,
-  moveLeads,
   onClose
 }: {
   user: AppUser
   users: AppUser[]
-  moveLeads: MoveLeads
   onClose: () => void
 }) {
-  const update = useUpdateUser()
+  const handOver = useHandOver()
 
   const [toUserId, setToUserId] = useState('')
   const [keep, setKeep] = useState(false)
   const [deactivate, setDeactivate] = useState(!user.active)
-  const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const busy = handOver.isPending
+  const failure = handOver.error?.message ?? null
 
   const candidates = users.filter((person) => person.active && person.id !== user.id)
   const target = candidates.find((person) => person.id === toUserId) ?? null
 
-  const submit = async () => {
+  const submit = () => {
     if (!target || busy) return
-    setBusy(true)
-    setFailure(null)
-
-    try {
-      const moved = await moveLeads(user.id, target.id, nameOf(target), keep)
-      if (deactivate && !keep && user.active) {
-        await update.mutateAsync({ id: user.id, active: false })
-      }
-      toast(
-        moved === 0
-          ? `${nameOf(user)} had no open leads to move`
-          : `${pluralize(moved, 'lead')} ${keep ? 'shared with' : 'moved to'} ${nameOf(target)}`
-      )
-      onClose()
-    } catch (error) {
-      setFailure((error as Error).message)
-    } finally {
-      setBusy(false)
-    }
+    handOver.mutate({ from: user, to: target, keep, deactivate }, { onSuccess: onClose })
   }
 
   return (
@@ -66,7 +42,7 @@ export function HandoverUserDialog({
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={() => void submit()} disabled={busy || !target}>
+          <Button onClick={submit} disabled={busy || !target}>
             {busy ? (keep ? 'Sharing…' : 'Moving…') : keep ? 'Share leads' : 'Move leads'}
           </Button>
         </>

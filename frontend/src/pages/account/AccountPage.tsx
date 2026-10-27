@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 
-import { isOwner } from '@platform/auth/domain/session'
-import { useSession, useUpdateOwnPassword } from '@platform/auth/hooks/useSession'
+import { useSession, useUpdateOwnPassword } from '@hooks/useSession'
+import { isOwner } from '@logic/rules/session'
 import { env } from '@shared/lib/env'
 import { Button } from '@shared/ui/Button'
 import { PasswordInput } from '@shared/ui/PasswordInput'
@@ -34,10 +33,6 @@ export function AccountPage() {
 
       <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-slate-200 pt-5 text-xs text-slate-400">
         <span>© {new Date().getFullYear()} {env.appName}</span>
-        <span aria-hidden="true">·</span>
-        <Link to="/privacy" className="font-medium text-brand-600 hover:text-brand-700">
-          Privacy Policy
-        </Link>
       </footer>
     </div>
   )
@@ -68,7 +63,7 @@ function PasswordCard() {
   return (
     <Card
       title="Password"
-      hint="Sets the password for signing in with your email. Google sign in keeps working either way."
+      hint="Sets the password for signing in with your email."
     >
       <form className="space-y-4" onSubmit={submit} noValidate>
         <PasswordInput

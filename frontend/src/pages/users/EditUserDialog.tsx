@@ -1,16 +1,14 @@
 import { useState } from 'react'
 
-import type { Role } from '@platform/auth/domain/session'
-import { useSession } from '@platform/auth/hooks/useSession'
-import type { AppUser } from '@platform/users/api/userTypes'
-import { useUpdateUser } from '@platform/users/hooks/useUsers'
+import { useSession } from '@hooks/useSession'
+import { useUpdateUser } from '@hooks/useUsers'
+import type { Role } from '@logic/rules/session'
+import type { AppUser } from '@logic/users/userTypes'
+import { ProjectPicker } from '@pages/users/ProjectPicker'
 import { Button } from '@shared/ui/Button'
 import { Input } from '@shared/ui/Input'
 import { Modal } from '@shared/ui/Modal'
-import { PasswordInput } from '@shared/ui/PasswordInput'
 import { Select } from '@shared/ui/Select'
-
-const MIN_PASSWORD = 8
 
 export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () => void }) {
   const { session } = useSession()
@@ -19,22 +17,20 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
   const [fullName, setFullName] = useState(user.fullName)
   const [role, setRole] = useState<Role>(user.role)
   const [active, setActive] = useState(user.active)
-  const [password, setPassword] = useState('')
+  const [projectIds, setProjectIds] = useState<string[] | null>(null)
 
   const isSelf = user.id === session?.userId
   const busy = update.isPending
   const error = update.error as Error | null
-  const tooShort = password.length > 0 && password.length < MIN_PASSWORD
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (tooShort) return
     update.mutate(
       {
         id: user.id,
         fullName: fullName.trim(),
         ...(isSelf ? {} : { role, active }),
-        ...(password ? { password } : {})
+        projectIds: role === 'employee' ? projectIds : null
       },
       { onSuccess: onClose }
     )
@@ -71,6 +67,13 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
             { value: 'owner', label: 'Owner' }
           ]}
         />
+        <ProjectPicker
+          owner={role === 'owner'}
+          userId={user.id}
+          picked={projectIds}
+          onChange={setProjectIds}
+          disabled={busy}
+        />
         <Select
           label="Status"
           value={active ? 'active' : 'inactive'}
@@ -81,22 +84,6 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
             { value: 'inactive', label: 'Inactive, cannot sign in' }
           ]}
         />
-
-        {!isSelf && (
-          <div className="flex flex-col gap-1">
-            <PasswordInput
-              label="Set a new password"
-              autoComplete="new-password"
-              value={password}
-              disabled={busy}
-              error={tooShort ? `At least ${MIN_PASSWORD} characters.` : undefined}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <p className="text-xs text-slate-500">
-              Leave empty to keep their current password. Use this when they forget it.
-            </p>
-          </div>
-        )}
 
         {isSelf && (
           <p className="text-xs text-slate-500">
@@ -114,7 +101,7 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
         <Button variant="secondary" onClick={onClose} disabled={busy}>
           Cancel
         </Button>
-        <Button type="submit" form="edit-user" disabled={busy || tooShort}>
+        <Button type="submit" form="edit-user" disabled={busy}>
           {update.isPending ? 'Saving…' : 'Save'}
         </Button>
       </footer>

@@ -1,23 +1,18 @@
 import { UserPlus } from 'lucide-react'
 import { useState } from 'react'
 
-import type { AppUser, MoveLeads } from '@platform/users/api/userTypes'
-import { AddUserDialog } from '@platform/users/components/AddUserDialog'
-import { EditUserDialog } from '@platform/users/components/EditUserDialog'
-import { HandoverUserDialog } from '@platform/users/components/HandoverUserDialog'
-import { UserTable } from '@platform/users/components/UserTable'
-import { useUsers } from '@platform/users/hooks/useUsers'
+import { useUsers } from '@hooks/useUsers'
+import type { AppUser } from '@logic/users/userTypes'
+import { AddUserDialog } from '@pages/users/AddUserDialog'
+import { EditUserDialog } from '@pages/users/EditUserDialog'
+import { HandoverUserDialog } from '@pages/users/HandoverUserDialog'
+import { UserTable } from '@pages/users/UserTable'
 import { Button } from '@shared/ui/Button'
 
-export function UsersPage({
-  moveLeads
-}: {
-  moveLeads?: MoveLeads
-}) {
+export function UsersPage() {
   const users = useUsers()
   const everyone = users.data ?? []
-  const owners = everyone.filter((person) => person.role === 'owner')
-  const team = everyone.filter((person) => person.role !== 'owner')
+  const ordered = [...everyone.filter((person) => person.role === 'owner'), ...everyone.filter((person) => person.role !== 'owner')]
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<AppUser | null>(null)
   const [handing, setHanding] = useState<AppUser | null>(null)
@@ -34,27 +29,18 @@ export function UsersPage({
 
       {users.isError && <p className="text-sm text-red-600">{(users.error as Error).message}</p>}
 
-      {owners.length > 0 && (
-        <UserTable
-          users={owners}
-          isLoading={users.isPending}
-          onEdit={setEditing}
-          onHandover={moveLeads && setHanding}
-        />
-      )}
       <UserTable
-        users={team}
+        users={ordered}
         isLoading={users.isPending}
         onEdit={setEditing}
-        onHandover={moveLeads && setHanding}
+        onHandover={setHanding}
       />
-      <AddUserDialog open={adding} onClose={() => setAdding(false)} moveLeads={moveLeads} />
-      {handing && moveLeads && (
+      <AddUserDialog open={adding} onClose={() => setAdding(false)} />
+      {handing && (
         <HandoverUserDialog
           key={handing.id}
           user={handing}
           users={everyone}
-          moveLeads={moveLeads}
           onClose={() => setHanding(null)}
         />
       )}
