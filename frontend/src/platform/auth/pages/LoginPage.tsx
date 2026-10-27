@@ -24,6 +24,7 @@ export function LoginPage() {
   const [submitted, setSubmitted] = useState(false)
   const [redirectError, setRedirectError] = useState<RedirectError | null>(readRedirectError)
   const [demoResetBlocked, setDemoResetBlocked] = useState(false)
+  const [googleBlocked, setGoogleBlocked] = useState(false)
 
   useEffect(() => {
     if (!redirectError) return
@@ -165,23 +166,26 @@ export function LoginPage() {
               {signIn.isPending ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
-          {googleEnabled && (
-            <>
-              <div className="my-5 flex items-center gap-3">
-                <span className="h-px flex-1 bg-slate-200" />
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">or</span>
-                <span className="h-px flex-1 bg-slate-200" />
-              </div>
-              <Button
-                variant="secondary"
-                className="w-full"
-                disabled={busy}
-                onClick={() => signInWithGoogle.mutate()}
-              >
-                <GoogleIcon />
-                {signInWithGoogle.isPending ? 'Redirecting…' : 'Continue with Google'}
-              </Button>
-            </>
+          <div className="my-5 flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">or</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          {/* Shown even when the Google provider is off, so the demo still shows the option. */}
+          <Button
+            variant="secondary"
+            className="w-full"
+            disabled={busy}
+            onClick={() => (googleEnabled ? signInWithGoogle.mutate() : setGoogleBlocked(true))}
+          >
+            <GoogleIcon />
+            {signInWithGoogle.isPending ? 'Redirecting…' : 'Continue with Google'}
+          </Button>
+          {googleBlocked && (
+            <p role="status" className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Google sign in is turned off in this demo, which runs in a controlled environment.
+              Sign in with an email and password instead.
+            </p>
           )}
           <p className="mt-5 text-center text-xs text-slate-500">
             Accounts are created by the owner. Ask for access if you do not have one.
@@ -251,7 +255,6 @@ function DemoAccounts({
                 <span className="text-xs font-semibold text-brand-600">Use this account</span>
               </span>
               <span className="text-sm font-medium text-ink">{account.email}</span>
-              <span className="text-xs text-slate-500">{account.access}</span>
             </button>
           </li>
         ))}

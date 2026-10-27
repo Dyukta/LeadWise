@@ -16,11 +16,17 @@ const SHARED = {
   VITE_APP_TIME_ZONE: 'APP_TIME_ZONE',
   VITE_CONTACT_EMAIL: 'CONTACT_EMAIL',
 }
+// Optional: the demo panel on the login page. Leave DEMO_PASSWORD unset in production.
+const DEMO = {
+  VITE_DEMO_OWNER_EMAIL: 'DEMO_OWNER_EMAIL',
+  VITE_DEMO_EMPLOYEE_EMAIL: 'DEMO_EMPLOYEE_EMAIL',
+  VITE_DEMO_PASSWORD: 'DEMO_PASSWORD',
+}
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, BACKEND, '')
-  for (const [vite, name] of Object.entries(SHARED)) {
-    if (!process.env[vite]?.trim() && env[name]?.trim()) process.env[vite] = env[name]
+  for (const [vite, name] of Object.entries({ ...SHARED, ...DEMO })) {
+    if (!process.env[vite]?.trim() && env[name]?.trim()) process.env[vite] = env[name].trim()
   }
   const missing = Object.entries(SHARED)
     .filter(([vite]) => !process.env[vite]?.trim() && !env[vite]?.trim())

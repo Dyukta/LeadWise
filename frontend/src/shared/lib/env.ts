@@ -8,17 +8,17 @@ export function requireEnv(name: string): string {
 
 const optional = (name: string) => values[name]?.trim() || null
 
-export type DemoAccount = { role: 'Owner' | 'Employee'; email: string; access: string }
+export type DemoAccount = { role: 'Owner' | 'Employee'; email: string }
 
 function demoAccounts(): DemoAccount[] {
   const accounts: DemoAccount[] = []
   const owner = optional('VITE_DEMO_OWNER_EMAIL')
   const employee = optional('VITE_DEMO_EMPLOYEE_EMAIL')
   if (owner) {
-    accounts.push({ role: 'Owner', email: owner, access: 'Team performance, KPIs, projects and users' })
+    accounts.push({ role: 'Owner', email: owner })
   }
   if (employee) {
-    accounts.push({ role: 'Employee', email: employee, access: 'Own leads, daily report and performance' })
+    accounts.push({ role: 'Employee', email: employee })
   }
   return accounts
 }
