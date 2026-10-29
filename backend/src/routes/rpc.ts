@@ -7,8 +7,8 @@ import { isRecord, strings } from '../lib/errors.ts'
 import { addLeads, clean } from '../services/intake.ts'
 import { isLeadStatus, isTerminalStatus, phoneKey, sameText } from '../services/leadRules.ts'
 
-// The frontend is Lead DGC's, which talks to one endpoint: { action, args, token } in,
-// { ok, data } or { ok: false, error } out. Each action mirrors Lead DGC's Apps Script.
+// The frontend talks to one endpoint: { action, args, token } in,
+// { ok, data } or { ok: false, error } out.
 
 type Viewer = { id: string; email: string; name: string; role: 'owner' | 'employee' }
 
@@ -53,7 +53,7 @@ type NewEvent = Omit<EventRow, 'from_value' | 'to_value'> & { from_value?: strin
 const DAY = 86_400_000
 const SESSION_EXPIRED = 'Your session has expired. Sign in again.'
 
-// Lead DGC field name -> leads column.
+// Frontend field name -> leads column.
 const EDITABLE: Record<string, keyof LeadRow> = {
   name: 'name',
   source: 'source',
@@ -563,7 +563,7 @@ const API: Api = {
 
 export const rpcRouter = Router()
 
-// Errors come back as { ok: false } with HTTP 200, as the Lead DGC frontend expects.
+// Errors come back as { ok: false } with HTTP 200, as the frontend expects.
 rpcRouter.post('/', async (req, res) => {
   try {
     const { action, args, token } = (req.body ?? {}) as { action?: string; args?: unknown[]; token?: unknown }

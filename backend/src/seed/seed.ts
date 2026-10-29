@@ -133,7 +133,7 @@ const LAST_NAMES = [
 
 type Source = { platform: 'Facebook' | 'Instagram' | null; names: string[] }
 
-// Lead DGC gets leads from Meta lead forms (tagged with the campaign) and from Excel uploads.
+// Leads come from Meta lead forms (tagged with the campaign) and from Excel uploads.
 const SOURCES: ReadonlyArray<readonly [Source, number]> = [
   [{ platform: 'Facebook', names: ['Monsoon Offer', 'Ready Possession', 'Navratri Prelaunch', 'Weekend Site Visit'] }, 46],
   [{ platform: 'Instagram', names: ['Reels campaign', 'Story ads'] }, 24],
@@ -169,7 +169,7 @@ const NOTES = [
   null
 ]
 
-// Stages follow Lead DGC: unreachable tries, then interested, details sent, registration, closed.
+// Stages: unreachable tries, then interested, details sent, registration, closed.
 const FUNNEL = {
   won: ['interested', 'sent_details', 'reg_done', 'closed'],
   engaged: ['interested', 'sent_details', 'reg_done'],
@@ -243,7 +243,7 @@ async function seedLeads(owner: Person, employee: Person) {
           ? { lead_id: id, at: iso(createdAt), event: 'created', by_name: 'Meta', reason: `From ${sourceName}` }
           : { lead_id: id, at: iso(createdAt), event: 'created', by_id: owner.id, by_name: owner.name, reason: `From ${sourceName}` }
       )
-      // Some buyers enquire again later; Lead DGC logs that as a repeat on the same lead.
+      // Some buyers enquire again later; the CRM logs that as a repeat on the same lead.
       if (chance(0.08) && age > 3) {
         const at = Math.min(createdAt + between(2, Math.min(age, 40)) * 86_400_000, NOW)
         events.push({ lead_id: id, at: iso(at), event: 'repeat', by_name: meta ? 'Meta' : owner.name, reason: `From ${sourceName}` })

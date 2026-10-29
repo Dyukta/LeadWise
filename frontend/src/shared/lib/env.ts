@@ -12,7 +12,7 @@ const demoAccounts = demoPassword
   : []
 
 export const env = {
-  appName: read('VITE_APP_NAME', 'DGC'),
+  appName: read('VITE_APP_NAME', 'Leadwise'),
   timeZone: read('VITE_APP_TIME_ZONE', 'Asia/Kolkata'),
   apiUrl: optional('VITE_API_URL'),
   supabaseUrl: optional('VITE_SUPABASE_URL'),

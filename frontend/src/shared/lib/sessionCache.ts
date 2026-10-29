@@ -1,5 +1,5 @@
-const KEY = 'leaddgc.session'
-const LEADS = 'leaddgc.leads.'
+const KEY = 'leadwise.session'
+const LEADS = 'leadwise.leads.'
 
 function readJson<T>(key: string): T | undefined {
   try {

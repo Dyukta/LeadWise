@@ -18,7 +18,7 @@ export function createApp() {
       maxAge: 600
     })
   )
-  // Lead DGC's client posts JSON as text/plain.
+  // The frontend posts JSON as text/plain.
   app.use(express.json({ limit: '5mb', type: ['application/json', 'text/plain'] }))
 
   app.get('/api/health', async (_req, res) => {

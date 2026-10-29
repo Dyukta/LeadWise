@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
   for (const [vite, name] of Object.entries(SHARED)) {
     if (!process.env[vite]?.trim() && env[name]?.trim()) process.env[vite] = env[name].trim()
   }
-  // The API serves the Lead DGC actions at /api/rpc; in development Vite forwards /api to it.
+  // The API serves its actions at /api/rpc; in development Vite forwards /api to it.
   process.env.VITE_API_URL ||= env.VITE_API_URL || '/api/rpc'
 
   return {
