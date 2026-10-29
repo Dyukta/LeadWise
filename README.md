@@ -8,22 +8,75 @@ A lead management CRM for sales and telecalling teams. Leads arrive from Faceboo
 
 A sales or telecalling team running ads gets dozens of leads a day. Leads that are not called quickly go cold. When two people end up calling the same customer, it looks bad. And at the end of the month the owner wants to know who closed what, and from which campaign.
 
-Leadwise puts all of that in one place:
+## What I built
 
-* New leads from the ads appear on their own, and the owner splits the day's leads evenly across the team in one click.
-* Each salesperson sees only their own leads, plus the unassigned leads in the projects they work on.
-* Every call, status change and handover is logged with who did it, when, and why.
-* Follow ups are grouped into overdue, today and upcoming, so call backs don't get missed.
-* Closed deals feed a leaderboard. When a lead was worked by more than one person, the deal value is split between them.
-
-## What's in it
+I built the frontend, the API, the database schema, the Meta lead sync and the seed data.
 
 * **Leads.** Mine, Unassigned and All views. Filter by project, priority, repeat enquiries, month or date range. Edit, assign, reassign or bulk assign.
+* **Fair distribution.** The owner splits the day's unassigned leads evenly across chosen people in one click.
 * **Status rules.** There are 13 statuses, from New to Closed. A lost lead needs a reason, a closed lead needs the deal amount, and closed or lost leads are locked.
+* **Follow ups.** Grouped into overdue, today and upcoming, so call backs don't get missed.
 * **Calls.** Calling a lead from the app logs the call. The owner also sees the whole team's calls.
-* **Excel import.** Finds the name and phone columns by itself and rejects rows without a valid 10 digit number. A number that is already in the CRM is logged as a repeat enquiry instead of becoming a duplicate lead.
-* **Owner tools.** Projects, users (invite, deactivate, hand someone's leads to another person), campaigns with lead counts and lead quality.
+* **Performance.** Closed deal value per person, with a leaderboard. When more than one person worked a lead, the value is split between them.
+* **Excel import.** Finds the name and phone columns by itself and rejects rows without a valid 10 digit number.
+* **Owner tools.** Projects, users (invite, deactivate, hand someone's leads to another person), and campaigns with lead counts and lead quality.
 * **Sign in.** Email and password or Google. Only people the owner added on the Users page can get in.
+
+## Keeping costs low with Google Sheets
+
+The real company wanted to keep running costs close to zero, so in the real project Google Sheets is the database. To keep it secure, the sheet is never shared or exposed to the browser. Everything goes through an API (Apps Script) that checks who is asking, reads the sheet, does all the processing and sends back only what that person is allowed to see. Nobody can open the sheet or read another caller's leads, even if they know where the data lives. For another client, I built the same idea with n8n workflows on top of Google Sheets.
+
+A spreadsheet is a slow database, and the first builds lagged on every page load. I fixed that in two ways:
+
+* **Processing on the backend.** Filtering, history and totals are worked out on the server, so the browser gets a small, finished result instead of the raw sheet.
+* **Caching.** The app saves the last lead list in the browser and shows it instantly on the next visit, then refreshes it quietly in the background. Pages open fast and don't flicker while data loads.
+
+This public demo keeps the same frontend and the same caching, with Express and Postgres on Supabase standing in for the sheet.
+
+## Results
+
+* **One list for every lead.** Meta ads and Excel uploads land in the same place, so nobody copies leads across from Meta by hand.
+* **No duplicate work.** A phone number that is already in the CRM becomes a "repeat enquiry" on the original lead, so two callers never chase the same person.
+* **A full history.** Every assignment, status change and call is logged with who did it, when, the old and new value, and the reason.
+* **Numbers the owner can trust.** A deal can't be closed without an amount or lost without a reason, so the leaderboard and campaign figures come from complete data.
+* **Privacy between callers.** Employees only see their own leads and the unassigned leads in their projects. The server enforces this, not just the UI.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  U[React app] -- sign in --> AUTH[Supabase Auth]
+  U -- "POST /api/rpc" --> API[Express API]
+  API -- verify token --> AUTH
+  API -- service role key --> DB[(Postgres)]
+  META[Meta Graph API] -- "polled every 15 min" --> API
+```
+
+The React app signs in with Supabase Auth. Every read and write goes to one endpoint, `POST /api/rpc`, as `{ action, args, token }`. The Express API checks the token, loads the user, applies the visibility rules and only then touches Postgres. The CRM tables have row level security turned on with no policies, so the browser can't read or write them directly. Only the API can, using the service role key.
+
+**Stack:** React 19, TypeScript, TanStack Query, Tailwind CSS, Vite, Express 5, Supabase (Postgres and Auth). The API runs TypeScript directly on Node 22.18+, so there is no build step on the server.
+
+### Endpoints
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /api/health` | Checks the database and returns its latency. Answers 503 if the database is down, so a host can use it as a health check. |
+| `POST /api/rpc` | Runs one action: `{ action, args, token }` in, `{ ok: true, data }` or `{ ok: false, error }` out. |
+
+The actions behind `/api/rpc`:
+
+* **Reads:** `currentSession`, `listLeads`, `performance`, `callStats`, `listProjects`, `listUsers`, `listCampaigns`, `listSources`
+* **Leads:** `writeLead` (update one lead, or assign one or many), `logCall`, `importLeads`
+* **Owner only:** `writeProject`, `createUser`, `updateUser`, `deleteUser`, `setMetaConnected`
+
+### How requests are handled
+
+* **Who is asking.** The Supabase token is verified on every call, then the user is loaded from the `users` table. A deactivated user is treated as signed out straight away, even if their token is still valid.
+* **What they can see.** An employee only gets their own leads and the unassigned leads in their projects. Owner only actions refuse anyone else with "Only the owner can do that."
+* **Errors people can read.** Every expected failure comes back as `{ ok: false, error }` with a plain sentence, such as "That lead no longer exists." The app shows that sentence to the user as is. If the session has expired, the app signs the user out and sends them to the login page.
+* **Bad requests.** Broken JSON gets a 400, a body over 5 MB gets a 413, an unknown path gets a 404. An unexpected crash is logged on the server, and the user only sees a generic "try again" message, never a stack trace.
+* **Imports in batches.** An Excel upload is capped at 5000 rows and written 500 at a time. Duplicate phone numbers are checked in chunks of 200, so one big file never turns into one giant query.
+* **CORS.** Only origins listed in `ALLOWED_ORIGINS` can call the API. Requests are sent as `text/plain` JSON, which counts as a simple request, so the browser skips the extra preflight round trip on every call.
 
 ## The hard part: getting leads out of Meta
 
@@ -38,72 +91,26 @@ Most of the app is ordinary CRUD done carefully. The Meta lead ads sync ([`backe
 * Different forms name their fields differently, for example `full_name` or `name`, and `phone_number` or `phone`.
 * The platform comes back as `ig` for Instagram.
 
-**The same person shows up more than once.** People fill in a form twice, or answer ads for two projects. Each Meta lead ID is stored in a unique column, so a lead is never imported twice. Phone numbers are normalised, and a number that already exists is added to the original lead as a "repeat enquiry". Salespeople see that the customer came back instead of getting a second copy.
+**The same person shows up more than once.** People fill in a form twice, or answer ads for two projects. Each Meta lead ID is stored in a unique column, so a lead is never imported twice. Phone numbers are normalised, and a number that already exists is added to the original lead as a "repeat enquiry". Callers see that the customer came back instead of getting a second copy.
 
 **Old campaigns keep sending leads.** A lead form doesn't care whether the campaign behind it is still running. With an ad account configured, the sync checks which campaigns are active, which uses a separate ads token, and skips the rest. A campaign flagged as stopped in the database is skipped too.
 
 **Failures are visible.** If a sync fails, for example because a token expired or Meta returned an error, the message is saved and shown on the Campaigns page. The owner sees it without anyone reading server logs. A simple guard also makes sure two syncs never run at the same time.
 
-## How it fits together
+## Tradeoffs
 
-The React app signs in with Supabase Auth. Every read and write goes to one endpoint, `POST /api/rpc`, as `{ action, args, token }`. The Express API checks the token, loads the user, applies the visibility rules (owner or employee, own leads or team leads) and only then touches Postgres. The browser never writes to the database directly.
+Every choice here fits a team of a few people with thousands of leads, not millions. Here is what I gave up, and what I'd change if the app grew.
 
-**Stack:** React 19, TypeScript, TanStack Query, Tailwind CSS, Vite, Express 5, Supabase (Postgres and Auth). The API runs TypeScript directly on Node 22.18+, so there is no build step on the server.
+* **One RPC endpoint instead of REST.** The real project runs on Apps Script, which gives you a single URL. Keeping the same `{ action, args }` contract let this demo swap in a different backend without rewriting the frontend. The cost: no per route HTTP caching, and errors come back with HTTP 200, so standard monitoring won't flag them as failures.
+* **Access rules in the API, not in Postgres.** All visibility rules live in one TypeScript file, which is easy to read and test. Row level security is only used to lock the browser out. The cost: a bug in the API is not caught by the database. With more roles, I'd move the rules into row level security policies.
+* **Filtering in Node, not SQL.** `listLeads` loads the leads and their history, then filters them in the API. It's simple and fast at this size. With hundreds of thousands of leads, I'd move the filters into SQL and paginate.
+* **Arrays instead of join tables.** Lead assignees and project members are `uuid[]` columns. Reading them and splitting deal value is easy. The cost: no foreign keys, so deleting a user has to remove their ID from every lead and project by hand, which the API does.
+* **Polling Meta instead of webhooks.** Leads can take up to 15 minutes to appear, and there's no public webhook endpoint to verify and secure. For faster leads, I'd add webhooks and keep the polling as a safety net.
+* **An in-process lock for the sync.** It stops two syncs from running at once, but only inside one server. With more than one API server, I'd use a Postgres advisory lock.
+* **No build step on the server.** Node runs the TypeScript directly, so deploys are just `npm start`. The cost: it needs Node 22.18 or newer, and can't use TypeScript features that need compiling, such as enums.
 
 ## What I'd do next
 
 * **Call duration tracking.** Right now a call is logged when someone taps Call, but the app can't tell a 5 second miss from a 10 minute conversation. Recording how long each call lasted would make the call stats and team performance much more honest.
 * **Bulk WhatsApp messages.** Callers often send the same details or follow up message to many leads by hand. Selecting leads and sending one WhatsApp message to all of them through the WhatsApp Business API would save that time and log each message on the lead.
 * **Tests.** The lead rules (status changes, transfers, follow ups, priority) are plain functions in `frontend/src/logic/rules/`, so they are the obvious place to start. There are no automated tests yet.
-* **Running more than one API server.** The guard that stops two Meta syncs at once only works inside a single server process. With more than one server, I'd use a Postgres advisory lock.
-* **Webhooks for faster leads.** A 15 minute delay is fine for this team. For anything faster, I'd add Meta webhooks and keep the polling as a safety net.
-
-## Run it locally
-
-You need Node 22.18 or newer and a free Supabase project.
-
-**1. Database.** In the Supabase SQL editor, run `backend/supabase/schema.sql`, then `backend/supabase/crm_schema.sql`. Then, in the Supabase dashboard:
-
-* Authentication > Users: add an owner and an employee (tick Auto Confirm User) with one shared password.
-* Authentication > Hooks: set Before User Created to `public.gate_signups`.
-* Authentication > Providers: turn on Google if you want it.
-
-**2. Environment.** Create `backend/.env` using the variables below. The frontend reads it too, and only the values it maps reach the browser.
-
-**3. Install, seed and start.**
-
-```bash
-cd backend
-npm install
-npm run seed
-npm run dev
-```
-
-In a second terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:5173. If `DEMO_PASSWORD` is set, the login page has one click sign in for the owner and the employee.
-
-The seed clears the CRM tables and generates about six months of history: projects, campaigns, leads with their calls, status changes, repeat enquiries and deal amounts, and a few fresh unassigned leads for today. It is deterministic, so every run gives the same data relative to today.
-
-### Environment variables
-
-* `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (required): the project URL, the service role key (stays on the server) and the publishable key (used by the browser for sign in only).
-* `ALLOWED_ORIGINS` (required): comma separated web origins allowed to call the API. The first one is also where invite emails link to.
-* `APP_NAME`, `APP_TIME_ZONE` (required): the product name and an IANA zone for business days, for example `Asia/Kolkata`.
-* `PORT`: API port, 4000 by default.
-* `DEMO_OWNER_EMAIL`, `DEMO_EMPLOYEE_EMAIL`, `DEMO_PASSWORD`: the demo accounts. Write a `$` in the password as `\$`. Leave `DEMO_PASSWORD` unset in production.
-* `META_PAGE_TOKEN`: turns on the Meta sync. Leave it unset for the demo.
-* `META_FORM_IDS`, `META_AD_ACCOUNT`, `META_ADS_TOKEN` (optional): limit the sync to certain forms, and skip leads from campaigns that are no longer running.
-* `VITE_API_URL`: the full RPC URL when the web app is hosted apart from the API. Defaults to `/api/rpc`.
-
-### Deploying
-
-* **Database:** run both SQL files on the production Supabase project and set the Before User Created hook. Add the site's `/login` and `/set-password` URLs to Auth redirect URLs.
-* **API:** any Node host. Run `npm install`, then `npm start`. `GET /api/health` works as a health check.
-* **Web app:** run `npm run build` and publish `dist` on any static host. Send every path that is not a file to `index.html`.
