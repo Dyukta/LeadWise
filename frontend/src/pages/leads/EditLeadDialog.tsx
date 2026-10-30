@@ -1,8 +1,7 @@
-import { Loader2, StickyNote } from 'lucide-react'
+import { StickyNote } from 'lucide-react'
 import { useState } from 'react'
 
-import { useUpdateLead } from '@hooks/useLeadMutations'
-import { useActiveProjectNames } from '@hooks/useProjects'
+import { queueLeadUpdate } from '@hooks/useLeadMutations'
 import type { Lead, LeadWriteInput } from '@logic/leads/leadTypes'
 import { LEAD_PRIORITIES, priorityLabel } from '@logic/rules/priority'
 import { LEAD_STATUSES, LOST_REASONS, statusLabel } from '@logic/rules/statuses'
@@ -10,7 +9,8 @@ import { ActivityLog } from '@pages/leads/LeadDrawer'
 import { RepeatedBadge } from '@pages/leads/LeadTable'
 import { cn } from '@shared/lib/cn'
 import { todayKey } from '@shared/lib/date'
-import { formatMoney } from '@shared/lib/format'
+import { formatMoney, parseAmount } from '@shared/lib/format'
+import { toast } from '@shared/lib/toast'
 import { Button } from '@shared/ui/Button'
 import { DatePicker } from '@shared/ui/DatePicker'
 import { Input } from '@shared/ui/Input'
@@ -28,12 +28,8 @@ function toDateInput(iso: string | null): string {
 }
 
 export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
-  const write = useUpdateLead()
-  const projectNames = useActiveProjectNames()
-
   const [name, setName] = useState(lead.name ?? '')
   const [source, setSource] = useState(lead.source ?? '')
-  const [project, setProject] = useState(lead.project ?? '')
   const [status, setStage] = useState(lead.status)
   const [priority, setPriority] = useState(lead.priority ?? '')
   const [followUp, setFollowUp] = useState(toDateInput(lead.nextFollowUpAt))
@@ -42,17 +38,15 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
   const [reason, setReason] = useState('')
   const [amount, setAmount] = useState(lead.amount ? String(lead.amount) : '')
 
-  const projectOptions = projectNames.map((name) => ({ value: name, label: name }))
-
+  const validStatus = (LEAD_STATUSES as readonly string[]).includes(status)
   const isLost = status === 'lost'
   const needsNote = isLost && lostReason === 'Other'
   const isClosed = status === 'closed'
-  const dealAmount = Number(amount.replace(/[,\s₹]/g, ''))
+  const dealAmount = parseAmount(amount)
 
   const changes: Changes = {}
   if (name.trim() !== (lead.name ?? '')) changes.name = name.trim()
   if (source.trim() !== (lead.source ?? '')) changes.source = source.trim()
-  if (project.trim() !== (lead.project ?? '')) changes.project = project.trim()
   if (status !== lead.status) changes.status = status
   if (priority && priority !== lead.priority) {
     changes.priority = priority as Changes['priority']
@@ -66,7 +60,9 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
   }
   if (isClosed && dealAmount !== (lead.amount ?? 0)) changes.amount = dealAmount
 
-  const blocked = !name.trim() && (lead.name ?? '').trim() ? 'A lead needs a name.'
+  const blocked = !validStatus ? 'Pick a status.'
+    : status === lead.status ? 'Update the status to save.'
+    : !name.trim() && (lead.name ?? '').trim() ? 'A lead needs a name.'
     : isLost && !lostReason ? 'Choose an option under "Lost because".'
     : needsNote && !reason.trim() ? 'Say what the other reason was.'
     : isClosed && !(dealAmount > 0) ? 'Enter the deal amount.'
@@ -75,10 +71,9 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
 
   const submit = () => {
     if (blocked) return
-    write.mutate(
-      { action: 'update', leadId: lead.id, changes, ...(reason.trim() ? { reason: reason.trim() } : {}) },
-      { onSuccess: onClose }
-    )
+    queueLeadUpdate({ action: 'update', leadId: lead.id, changes, ...(reason.trim() ? { reason: reason.trim() } : {}) })
+    toast('Lead updated')
+    onClose()
   }
 
   return (
@@ -91,9 +86,8 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={blocked !== null || write.isPending}>
-            {write.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {write.isPending ? 'Saving…' : 'Save changes'}
+          <Button onClick={submit} disabled={blocked !== null}>
+            Save changes
           </Button>
         </>
       }
@@ -114,14 +108,6 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <Input label="Name" value={name} onChange={(event) => setName(event.target.value)} />
           <Input label="Source" value={source} onChange={(event) => setSource(event.target.value)} />
           <Select
-            label="Project"
-            placeholder="Pick a project"
-            options={projectOptions}
-            value={project}
-            searchable={projectOptions.length > 8}
-            onChange={setProject}
-          />
-          <Select
             label="Priority"
             placeholder="No priority"
             options={priorityOptions}
@@ -129,7 +115,15 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
             onChange={setPriority}
           />
           <div className="rounded-xl border border-brand-200 bg-brand-50 p-3 sm:col-span-2">
-            <Select label="Status" options={statusOptions} value={status} onChange={setStage} />
+            <Select
+              label="Status *"
+              placeholder="Pick a status"
+              clearable={false}
+              options={statusOptions}
+              value={status}
+              onChange={setStage}
+              error={validStatus ? undefined : 'Pick a status from the list.'}
+            />
           </div>
         </div>
 
@@ -137,11 +131,15 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
             <Input
               label="Deal amount (₹)"
-              inputMode="numeric"
-              placeholder="e.g. 4500000"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
-              error={dealAmount > 0 ? undefined : 'Required before you can save a closed lead.'}
+              error={
+                dealAmount > 0
+                  ? undefined
+                  : amount.trim()
+                    ? 'Write it like 4500000, 45 lakh or 1.2 crore.'
+                    : 'Required before you can save a closed lead.'
+              }
             />
             {dealAmount > 0 && (
               <p className="mt-1.5 text-xs font-medium text-emerald-700">
@@ -210,7 +208,6 @@ export function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => v
         </div>
 
         {blocked && <p className="text-sm text-slate-500">{blocked}</p>}
-        {write.isError && <p className="text-sm text-red-600">{(write.error as Error).message}</p>}
 
         <ActivityLog lead={lead} />
       </div>

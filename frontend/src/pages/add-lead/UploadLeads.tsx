@@ -5,9 +5,10 @@ import { useImportLeads } from '@hooks/useLeadMutations'
 import { hasPhoneColumn, leadRows, type ImportRow } from '@logic/leads/importRows'
 import { pluralize } from '@shared/lib/format'
 import { Button } from '@shared/ui/Button'
-import { Modal } from '@shared/ui/Modal'
 
-export function ImportLeadsDialog({ onClose }: { onClose: () => void }) {
+const MAX_BYTES = 5 * 1024 * 1024
+
+export function UploadLeads() {
   const importing = useImportLeads()
   const [file, setFile] = useState<{ name: string; rows: ImportRow[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -18,6 +19,8 @@ export function ImportLeadsDialog({ onClose }: { onClose: () => void }) {
     setFile(null)
     setError(null)
     if (!picked) return
+    if (!/\.xlsx$/i.test(picked.name)) return setError('Only Excel (.xlsx) files can be uploaded.')
+    if (picked.size > MAX_BYTES) return setError('The file is larger than 5 MB.')
     const { default: readXlsxFile } = await import('read-excel-file/browser')
     const sheets = await readXlsxFile(picked).catch(() => null)
     if (!sheets) return setError('Could not read this file. Upload an Excel (.xlsx) file.')
@@ -31,43 +34,36 @@ export function ImportLeadsDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const upload = () => file && importing.mutate({ rows: file.rows, fileName: file.name }, { onSuccess: onClose })
+  const upload = () => file && importing.mutate({ rows: file.rows, fileName: file.name }, { onSuccess: () => setFile(null) })
 
   return (
-    <Modal
-      open
-      onClose={busy ? () => {} : onClose}
-      title="Upload leads"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={upload} disabled={busy || !file}>
-            <Upload className="h-4 w-4" />
-            {busy ? 'Uploading…' : file ? `Upload ${pluralize(file.rows.length - noPhone, 'lead')}` : 'Upload'}
-          </Button>
-        </>
-      }
-    >
-      <label className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-8 text-center text-sm transition-colors hover:border-brand-400 hover:bg-brand-50">
-        <FileSpreadsheet className="h-8 w-8 text-brand-600" />
-        <span className="font-semibold text-ink">{file ? file.name : 'Choose an Excel file'}</span>
+    <div className="space-y-5">
+      <label className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-14 text-center text-sm transition-colors hover:border-brand-400 hover:bg-brand-50">
+        <FileSpreadsheet className="h-10 w-10 text-brand-600" />
+        <span className="text-base font-semibold text-ink">{file ? file.name : 'Choose an Excel file'}</span>
+        <span className="text-xs text-slate-500">Excel (.xlsx) only · up to 5 MB · max 5000 leads</span>
         <input
           type="file"
-          accept=".xlsx"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="sr-only"
           disabled={busy}
-          onChange={(event) => void pick(event.target.files?.[0])}
+          onChange={(event) => {
+            void pick(event.target.files?.[0])
+            event.target.value = ''
+          }}
         />
       </label>
       {file && (
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="text-sm text-slate-600">
           {pluralize(file.rows.length, 'lead')} found
           {noPhone > 0 && ` · ${noPhone} without a phone number will be skipped`}
         </p>
       )}
-      {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
-    </Modal>
+      {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
+      <Button size="lg" className="w-full" onClick={upload} disabled={busy || !file}>
+        <Upload className="h-4 w-4" />
+        {busy ? 'Uploading…' : file ? `Upload ${pluralize(file.rows.length - noPhone, 'lead')}` : 'Upload'}
+      </Button>
+    </div>
   )
 }

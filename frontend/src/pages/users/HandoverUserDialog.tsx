@@ -19,7 +19,6 @@ export function HandoverUserDialog({
   const handOver = useHandOver()
 
   const [toUserId, setToUserId] = useState('')
-  const [keep, setKeep] = useState(false)
   const [deactivate, setDeactivate] = useState(!user.active)
   const busy = handOver.isPending
   const failure = handOver.error?.message ?? null
@@ -29,7 +28,7 @@ export function HandoverUserDialog({
 
   const submit = () => {
     if (!target || busy) return
-    handOver.mutate({ from: user, to: target, keep, deactivate }, { onSuccess: onClose })
+    handOver.mutate({ from: user, to: target, deactivate }, { onSuccess: onClose })
   }
 
   return (
@@ -43,18 +42,15 @@ export function HandoverUserDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy || !target}>
-            {busy ? (keep ? 'Sharing…' : 'Moving…') : keep ? 'Share leads' : 'Move leads'}
+            {busy ? 'Moving…' : 'Move leads'}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
         <p className="text-sm text-slate-600">
-          {keep ? 'Share ' : 'Move '}
-          <span className="font-semibold text-ink">{nameOf(user)}</span>
-          {keep
-            ? "'s open leads with another person."
-            : "'s open leads to another person. Closed and lost leads don't move."}
+          Move <span className="font-semibold text-ink">{nameOf(user)}</span>
+          &apos;s open leads to another person. Closed and lost leads don&apos;t move.
         </p>
 
         <Select
@@ -74,31 +70,15 @@ export function HandoverUserDialog({
         )}
 
         {user.active && (
-          <>
-            <label className="flex items-center gap-2 text-xs text-slate-600">
-              <Checkbox
-                checked={keep}
-                disabled={busy}
-                onChange={(next) => {
-                  setKeep(next)
-                  if (next) setDeactivate(false)
-                }}
-                label={`Share instead (${nameOf(user)} keeps them too)`}
-              />
-              Share instead ({nameOf(user)} keeps them too)
-            </label>
-            <label className="flex items-center gap-2 text-xs text-slate-600">
+          <label className="flex items-center gap-2 text-xs text-slate-600">
               <Checkbox
                 checked={deactivate}
-                disabled={busy || keep}
+                disabled={busy}
                 onChange={setDeactivate}
                 label={`Deactivate ${nameOf(user)} after moving`}
               />
-              <span className={keep ? 'text-slate-400' : undefined}>
-                Deactivate {nameOf(user)} after moving (they can&apos;t sign in)
-              </span>
+              <span>Deactivate {nameOf(user)} after moving (they can&apos;t sign in)</span>
             </label>
-          </>
         )}
 
         {failure && (

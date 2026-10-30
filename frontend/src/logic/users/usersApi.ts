@@ -12,8 +12,8 @@ export const updateUser = (input: { id: string; fullName?: string; role?: Role; 
 
 export const deleteUser = (id: string) => call<void>('deleteUser', id)
 
-export async function handOver(from: AppUser, toUserId: string, keep: boolean, deactivate: boolean): Promise<number> {
-  const moved = await moveLeads(from.id, toUserId, keep)
-  if (deactivate && !keep && from.active) await updateUser({ id: from.id, active: false })
+export async function handOver(from: AppUser, toUserId: string, deactivate: boolean): Promise<number> {
+  const moved = await moveLeads(from.id, toUserId)
+  if (deactivate && from.active) await updateUser({ id: from.id, active: false })
   return moved
 }

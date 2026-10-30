@@ -4,7 +4,6 @@ import { useSession } from '@hooks/useSession'
 import { useUpdateUser } from '@hooks/useUsers'
 import type { Role } from '@logic/rules/session'
 import type { AppUser } from '@logic/users/userTypes'
-import { ProjectPicker } from '@pages/users/ProjectPicker'
 import { Button } from '@shared/ui/Button'
 import { Input } from '@shared/ui/Input'
 import { Modal } from '@shared/ui/Modal'
@@ -17,7 +16,6 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
   const [fullName, setFullName] = useState(user.fullName)
   const [role, setRole] = useState<Role>(user.role)
   const [active, setActive] = useState(user.active)
-  const [projectIds, setProjectIds] = useState<string[] | null>(null)
 
   const isSelf = user.id === session?.userId
   const busy = update.isPending
@@ -29,8 +27,7 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
       {
         id: user.id,
         fullName: fullName.trim(),
-        ...(isSelf ? {} : { role, active }),
-        projectIds: role === 'employee' ? projectIds : null
+        ...(isSelf ? {} : { role, active })
       },
       { onSuccess: onClose }
     )
@@ -66,13 +63,6 @@ export function EditUserDialog({ user, onClose }: { user: AppUser; onClose: () =
             { value: 'employee', label: 'Employee' },
             { value: 'owner', label: 'Owner' }
           ]}
-        />
-        <ProjectPicker
-          owner={role === 'owner'}
-          userId={user.id}
-          picked={projectIds}
-          onChange={setProjectIds}
-          disabled={busy}
         />
         <Select
           label="Status"

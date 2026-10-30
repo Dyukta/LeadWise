@@ -1,14 +1,4 @@
 
-create table if not exists public.projects (
-  id         uuid primary key default gen_random_uuid(),
-  name       text not null check (length(trim(name)) > 0),
-  active     boolean not null default true,
-  member_ids uuid[] not null default '{}',
-  created_at timestamptz not null default now()
-);
-
-create unique index if not exists projects_name_key on public.projects (lower(name));
-
 create table if not exists public.leads (
   id                uuid primary key default gen_random_uuid(),
   lead_date         date not null default current_date,
@@ -17,7 +7,6 @@ create table if not exists public.leads (
   phone_key         text,
   source            text,
   source_name       text,
-  project           text,
   possession        text,
   status            text not null default 'new',
   priority          text check (priority in ('high', 'medium', 'low')),
@@ -76,7 +65,6 @@ create table if not exists public.meta_sync (
 
 insert into public.meta_sync (id) values (true) on conflict (id) do nothing;
 
-alter table public.projects        enable row level security;
 alter table public.leads           enable row level security;
 alter table public.lead_events     enable row level security;
 alter table public.campaigns       enable row level security;
@@ -85,7 +73,6 @@ alter table public.meta_sync       enable row level security;
 grant select, insert, update, delete on
   public.campaigns,
   public.meta_sync,
-  public.projects,
   public.leads,
   public.lead_events
 to service_role;

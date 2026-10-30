@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Component, type ReactNode } from 'react'
 
+import { startOutbox } from '@shared/lib/outbox'
+import { queryKeys } from '@shared/lib/queryKeys'
 import { supabase } from '@shared/lib/supabase'
 
 const queryClient = new QueryClient({
@@ -13,6 +15,8 @@ const queryClient = new QueryClient({
     }
   }
 })
+
+startOutbox(() => queryClient.invalidateQueries({ queryKey: queryKeys.leads.all }))
 
 supabase?.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {

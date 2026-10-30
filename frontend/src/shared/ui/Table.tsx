@@ -27,6 +27,15 @@ type TableProps<Row> = {
   }
 }
 
+export function TableSection<Row>({ title, ...props }: TableProps<Row> & { title: string }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-bold text-ink">{title}</h2>
+      <Table {...props} />
+    </section>
+  )
+}
+
 export function Table<Row>({
   columns,
   rows,
@@ -34,19 +43,17 @@ export function Table<Row>({
   onRowClick,
   isLoading = false,
   emptyMessage = 'Nothing here yet.',
-  pageSize,
+  pageSize = 10,
   selection
 }: TableProps<Row>) {
   const [page, setPage] = useState(0)
 
-  const pageCount = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
 
   const current = Math.min(page, pageCount - 1)
-  const visible = pageSize ? rows.slice(current * pageSize, current * pageSize + pageSize) : rows
+  const visible = rows.slice(current * pageSize, current * pageSize + pageSize)
 
-  const selectableRows = selection
-    ? visible.filter((row) => selection.isSelectable?.(row) ?? true)
-    : []
+  const selectableRows = selection ? rows.filter((row) => selection.isSelectable?.(row) ?? true) : []
   const selectedSet = new Set(selection?.selectedKeys ?? [])
   const selectedCount = selectableRows.filter((row) => selectedSet.has(rowKey(row))).length
   const allSelected = selectableRows.length > 0 && selectedCount === selectableRows.length
@@ -69,8 +76,8 @@ export function Table<Row>({
     selection.onChange([...next])
   }
 
-  const first = rows.length === 0 ? 0 : current * (pageSize ?? rows.length) + 1
-  const last = Math.min(first + (pageSize ?? rows.length) - 1, rows.length)
+  const first = rows.length === 0 ? 0 : current * pageSize + 1
+  const last = Math.min(first + pageSize - 1, rows.length)
 
   if (isLoading || rows.length === 0) {
     return (
@@ -98,6 +105,22 @@ export function Table<Row>({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <ul className="divide-y divide-slate-300 xl:hidden">
+        {selection && selectableRows.length > 0 && (
+          <li className="flex items-center gap-3 rounded-t-2xl bg-slate-50 px-4 py-3">
+            <Checkbox
+              label="Select all rows"
+              checked={allSelected}
+              indeterminate={selectedCount > 0 && !allSelected}
+              onChange={toggleAll}
+            />
+            <button type="button" onClick={toggleAll} className="text-sm font-semibold text-slate-700">
+              {allSelected ? 'Clear selection' : 'Select all'}
+            </button>
+            {selectedCount > 0 && (
+              <span className="ml-auto text-sm font-semibold tabular-nums text-brand-700">{selectedCount} selected</span>
+            )}
+          </li>
+        )}
         {visible.map((row) => {
           const key = rowKey(row)
           return (
@@ -151,8 +174,7 @@ export function Table<Row>({
         })}
       </ul>
       <div
-        className="scrollbar-thin hidden overflow-auto rounded-t-2xl xl:block"
-        style={pageSize ? { maxHeight: '32rem' } : undefined}
+        className="scrollbar-thin hidden max-h-[32rem] overflow-auto rounded-t-2xl xl:block"
       >
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10">
@@ -218,32 +240,22 @@ export function Table<Row>({
         </table>
       </div>
 
-      {pageSize !== undefined && (
-        <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
-          <p className="text-xs text-slate-500">
-            Showing {first} to {last} of {rows.length}
+      <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+        <p className="text-xs text-slate-500">
+          Showing {first} to {last} of {rows.length}
+        </p>
+        <div className="flex items-center gap-2">
+          <PageButton label="Previous page" disabled={current === 0} onClick={() => setPage(current - 1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </PageButton>
+          <p className="text-xs font-semibold text-slate-600">
+            {current + 1} / {pageCount}
           </p>
-          <div className="flex items-center gap-2">
-            <PageButton
-              label="Previous page"
-              disabled={current === 0}
-              onClick={() => setPage(current - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </PageButton>
-            <p className="text-xs font-semibold text-slate-600">
-              {current + 1} / {pageCount}
-            </p>
-            <PageButton
-              label="Next page"
-              disabled={current >= pageCount - 1}
-              onClick={() => setPage(current + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </PageButton>
-          </div>
+          <PageButton label="Next page" disabled={current >= pageCount - 1} onClick={() => setPage(current + 1)}>
+            <ChevronRight className="h-4 w-4" />
+          </PageButton>
         </div>
-      )}
+      </div>
     </div>
   )
 }

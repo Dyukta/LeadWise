@@ -7,7 +7,7 @@ export type Session = {
   role: Role
 }
 
-type LeadsView = 'mine' | 'unassigned' | 'others' | 'all'
+export type LeadsView = 'mine' | 'unassigned' | 'others' | 'all'
 
 export function isOwner(session: Session | null): boolean {
   return session?.role === 'owner'

@@ -13,7 +13,6 @@ import { isLeadStatus, isTerminalStatus, phoneKey, sameText } from '../services/
 type Viewer = { id: string; email: string; name: string; role: 'owner' | 'employee' }
 
 type UserRow = { id: string; email: string; full_name: string; role: string; active: boolean }
-type ProjectRow = { id: string; name: string; active: boolean; member_ids: string[] }
 type LeadRow = {
   id: string
   lead_date: string
@@ -21,7 +20,6 @@ type LeadRow = {
   phone: string | null
   source: string | null
   source_name: string | null
-  project: string | null
   possession: string | null
   status: string
   priority: string | null
@@ -52,13 +50,13 @@ type NewEvent = Omit<EventRow, 'from_value' | 'to_value'> & { from_value?: strin
 
 const DAY = 86_400_000
 const SESSION_EXPIRED = 'Your session has expired. Sign in again.'
+const MANUAL = 'Manually added'
 
 // Frontend field name -> leads column.
 const EDITABLE: Record<string, keyof LeadRow> = {
   name: 'name',
   source: 'source',
   sourceName: 'source_name',
-  project: 'project',
   possession: 'possession',
   status: 'status',
   priority: 'priority',
@@ -77,7 +75,6 @@ function sameValue(field: string, a: unknown, b: unknown): boolean {
 }
 
 const allUsers = async () => rows<UserRow>(await db.from('users').select('id, email, full_name, role, active'))
-const allProjects = async () => rows<ProjectRow>(await db.from('projects').select('id, name, active, member_ids').order('name'))
 const allLeads = () => selectAll<LeadRow>((a, b) => db.from('leads').select('*').range(a, b))
 const allEvents = () => selectAll<EventRow>((a, b) => db.from('lead_events').select('*').order('at').order('id').range(a, b))
 
@@ -97,15 +94,8 @@ async function sessionOf(token: unknown): Promise<Viewer | null> {
   return { id: user.id, email: user.email, name: user.full_name || user.email, role: user.role === 'owner' ? 'owner' : 'employee' }
 }
 
-const projectNamesOf = (projects: ProjectRow[], me: Viewer) =>
-  projects.filter((p) => p.active && p.member_ids.includes(me.id)).map((p) => p.name)
-
-function canSee(row: LeadRow, me: Viewer, myProjects: string[]): boolean {
-  if (me.role === 'owner') return true
-  if (row.assignee_ids.includes(me.id)) return true
-  if (row.assignee_ids.length > 0) return false
-  return !row.project || myProjects.some((name) => sameText(name, row.project))
-}
+const canSee = (row: LeadRow, me: Viewer) =>
+  me.role === 'owner' || row.assignee_ids.length === 0 || row.assignee_ids.includes(me.id)
 
 function campaignOf(events: EventRow[]): string | null {
   const created = events.find((event) => event.event === 'created' && event.by_name === 'Meta')
@@ -124,13 +114,12 @@ function toLead(row: LeadRow, events: EventRow[], me: Viewer, names: Map<string,
     source: row.source,
     sourceName: row.source_name,
     campaign: row.campaign || campaignOf(events),
-    project: row.project,
     possession: row.possession,
     status: row.status,
     isTerminal: terminal,
     view,
     canEdit: owner || mine,
-    canAssign: !terminal && (owner || mine || view === 'unassigned'),
+    canAssign: !terminal && (owner || view === 'unassigned'),
     priority: row.priority,
     nextFollowUpAt: row.next_follow_up_at,
     assignees: row.assignee_ids.map((id) => ({ id, name: names.get(id) ?? 'Former user' })),
@@ -202,7 +191,9 @@ async function updateLead(lead: LeadRow, changes: Record<string, unknown>, reaso
 async function assignLeads(leads: LeadRow[], toUserIds: string[], reason: string | null, me: Viewer) {
   const active = new Map((await allUsers()).filter((user) => user.active).map((user) => [user.id, user]))
   const targets = [...new Set(toUserIds)]
-  if (!targets.length) throw new Error('Pick at least one person to handle this lead.')
+  if (!targets.length) throw new Error('Pick the person to handle this lead.')
+  if (targets.length > 1) throw new Error('A lead can only be handled by one person.')
+  if (me.role !== 'owner' && targets[0] !== me.id) throw new Error('Only the owner can give leads to other people.')
   if (targets.some((id) => !active.has(id))) throw new Error('One of those people no longer has access.')
   const results: { leadId: string; ok: boolean; noop?: boolean; error?: string }[] = []
   const events: NewEvent[] = []
@@ -264,44 +255,31 @@ const API: Api = {
 
   async performance(viewer) {
     const me = signedIn(viewer)
-    const [leads, users, closes] = await Promise.all([
+    const [leads, closes] = await Promise.all([
       allLeads(),
-      allUsers(),
       selectAll<{ lead_id: string; at: string }>((a, b) =>
         db.from('lead_events').select('lead_id, at').eq('field', 'status').eq('to_value', 'closed').order('at').range(a, b)
       )
     ])
     const closedAt = new Map(closes.map((event) => [event.lead_id, event.at]))
-    const totals = new Map<string, number>()
-    const mine: { leadId: string; name: string; closedAt: string; amount: number }[] = []
-    for (const lead of leads) {
-      if (lead.status !== 'closed' || !lead.assignee_ids.length) continue
-      const share = (Number(lead.amount) || 0) / lead.assignee_ids.length
-      for (const id of lead.assignee_ids) totals.set(id, (totals.get(id) ?? 0) + share)
-      if (lead.assignee_ids.includes(me.id)) mine.push({ leadId: lead.id, name: lead.name, closedAt: closedAt.get(lead.id) ?? lead.updated_at, amount: share })
-    }
-    const board = users
-      .filter((user) => user.active)
-      .map((user) => ({ name: user.full_name, amount: totals.get(user.id) ?? 0, you: user.id === me.id }))
-      .sort((a, b) => b.amount - a.amount)
-    return { mine, board }
+    const mine = leads
+      .filter((lead) => lead.status === 'closed' && lead.assignee_ids.includes(me.id))
+      .map((lead) => ({ leadId: lead.id, name: lead.name, closedAt: closedAt.get(lead.id) ?? lead.updated_at, amount: (Number(lead.amount) || 0) / lead.assignee_ids.length }))
+    return { mine }
   },
 
   async listLeads(viewer, rawQuery) {
     const me = signedIn(viewer)
     const query = (isRecord(rawQuery) ? rawQuery : {}) as { month?: string; from?: string; to?: string }
-    const [users, projects, leads, events, sync] = await Promise.all([
+    const [users, leads, events, sync] = await Promise.all([
       allUsers(),
-      allProjects(),
       allLeads(),
       allEvents(),
       db.from('meta_sync').select('synced_at').eq('id', true).maybeSingle()
     ])
     const names = new Map(users.map((user) => [user.id, user.full_name]))
-    const active = projects.filter((p) => p.active)
-    const myProjects = projectNamesOf(active, me)
     const visible = leads
-      .filter((row) => canSee(row, me, myProjects))
+      .filter((row) => canSee(row, me))
       .sort((a, b) => b.lead_date.localeCompare(a.lead_date) || b.created_at.localeCompare(a.created_at))
     const inRange = visible.filter((row) => {
       if (query.month) return row.lead_date.startsWith(query.month)
@@ -320,9 +298,7 @@ const API: Api = {
       leads: inRange.map((row) => toLead(row, byLead.get(row.id) ?? [], me, names, now)),
       months: [...new Set(visible.map((row) => row.lead_date.slice(0, 7)))].sort().reverse(),
       syncedAt: must(sync)?.synced_at ?? null,
-      roster: users
-        .filter((u) => u.active)
-        .map((u) => ({ id: u.id, name: u.full_name, role: u.role, projects: active.filter((p) => p.member_ids.includes(u.id)).length }))
+      roster: users.filter((u) => u.active).map((u) => ({ id: u.id, name: u.full_name, role: u.role }))
     }
   },
 
@@ -342,7 +318,7 @@ const API: Api = {
   async logCall(viewer, leadId) {
     const me = signedIn(viewer)
     const [lead] = typeof leadId === 'string' ? await leadsById([leadId]) : []
-    if (!lead || !canSee(lead, me, projectNamesOf(await allProjects(), me))) throw new Error('That lead no longer exists.')
+    if (!lead || !canSee(lead, me)) throw new Error('That lead no longer exists.')
     const now = new Date().toISOString()
     must(await db.from('leads').update({ touched_at: now }).eq('id', lead.id))
     must(await db.from('lead_events').insert({ lead_id: lead.id, at: now, event: 'call', by_id: me.id, by_name: me.name, assignee_ids: [me.id] }))
@@ -368,77 +344,15 @@ const API: Api = {
           leadId: call.lead_id,
           leadName: lead?.name ?? 'Deleted lead',
           leadPhone: lead?.phone ?? null,
-          project: lead?.project ?? null,
           campaign: lead?.campaign ?? null,
+          source: lead?.source ?? null,
+          status: lead?.status ?? null,
           userId: call.assignee_ids?.[0] ?? null,
           userName: call.by_name
         }
       }),
       people: users.filter((u) => u.active).map((u) => ({ id: u.id, name: u.full_name }))
     }
-  },
-
-  async listProjects(viewer) {
-    signedIn(viewer)
-    const [projects, users] = await Promise.all([allProjects(), allUsers()])
-    const names = new Map(users.map((user) => [user.id, user.full_name]))
-    return projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      active: p.active,
-      memberIds: p.member_ids,
-      memberNames: p.member_ids.map((id) => names.get(id) ?? 'Former user')
-    }))
-  },
-
-  async writeProject(viewer, rawInput) {
-    requireOwner(signedIn(viewer))
-    const input = (isRecord(rawInput) ? rawInput : {}) as Record<string, unknown>
-    const projects = await allProjects()
-
-    if (input.action === 'addProject') {
-      const name = clean(input.name)
-      if (!name) throw new Error('Name the project.')
-      if (projects.some((p) => sameText(p.name, name))) throw new Error('A project with that name already exists.')
-      const created = must(await db.from('projects').insert({ name }).select('id').single())
-      return { projectId: created?.id }
-    }
-
-    if (input.action === 'setUserProjects') {
-      const userId = String(input.userId)
-      const picked = new Set(strings(input.projectIds))
-      for (const p of projects.filter((project) => project.active)) {
-        const next = [...p.member_ids.filter((id) => id !== userId), ...(picked.has(p.id) ? [userId] : [])]
-        if (next.length !== p.member_ids.length || next.some((id, i) => id !== p.member_ids[i])) {
-          must(await db.from('projects').update({ member_ids: next }).eq('id', p.id))
-        }
-      }
-      return {}
-    }
-
-    const project = projects.find((p) => p.id === input.projectId)
-    if (!project) throw new Error('That project no longer exists.')
-
-    if (input.action === 'deleteProject') {
-      must(await db.from('projects').delete().eq('id', project.id))
-      return { projectId: project.id }
-    }
-
-    if (input.action === 'setMembers') {
-      must(await db.from('projects').update({ member_ids: [...new Set(strings(input.userIds))] }).eq('id', project.id))
-      return { projectId: project.id }
-    }
-
-    const name = input.name === undefined ? project.name : clean(input.name)
-    if (!name) throw new Error('Name the project.')
-    if (name !== project.name) must(await db.from('leads').update({ project: name }).ilike('project', project.name))
-    must(
-      await db
-        .from('projects')
-        .update({ name, ...(typeof input.active === 'boolean' ? { active: input.active } : {}) })
-        .eq('id', project.id)
-    )
-    return { projectId: project.id }
   },
 
   async listUsers(viewer) {
@@ -501,9 +415,6 @@ const API: Api = {
     for (const lead of (await allLeads()).filter((row) => row.assignee_ids.includes(user.id))) {
       must(await db.from('leads').update({ assignee_ids: lead.assignee_ids.filter((uid) => uid !== user.id) }).eq('id', lead.id))
     }
-    for (const p of (await allProjects()).filter((project) => project.member_ids.includes(user.id))) {
-      must(await db.from('projects').update({ member_ids: p.member_ids.filter((uid) => uid !== user.id) }).eq('id', p.id))
-    }
     must(await db.from('users').delete().eq('id', user.id))
     must(await db.from('allowed_emails').delete().eq('email', user.email.toLowerCase()))
   },
@@ -519,13 +430,35 @@ const API: Api = {
     const day = todayKey()
     for (let i = 0; i < usable.length; i += 500) {
       const result = await addLeads(
-        usable.slice(i, i + 500).map((row) => ({ date: day, name: clean(asText(row.name)), phone: row.phone, source: me.name, sourceName: clean(fileName) })),
+        usable.slice(i, i + 500).map((row) => ({ date: day, name: clean(asText(row.name)), phone: row.phone, source: MANUAL, sourceName: clean(fileName) })),
         { id: me.id, name: me.name }
       )
       added += result.added
       repeats += result.existing.length
     }
     return { added, repeats, rejected }
+  },
+
+  async addLead(viewer, rawInput) {
+    const me = signedIn(viewer)
+    const input = (isRecord(rawInput) ? rawInput : {}) as Record<string, unknown>
+    const changes: Record<string, unknown> = {}
+    for (const field of ['status', 'notes', 'nextFollowUpAt']) if (input[field]) changes[field] = normalize(field, input[field])
+    if (isTerminalStatus(String(changes.status ?? ''))) throw new Error('Add the lead first, then mark it lost or closed.')
+    const assignee = clean(input.assigneeId)
+    if (assignee && me.role !== 'owner' && assignee !== me.id) throw new Error('Only the owner can give leads to other people.')
+    if (assignee && !(await allUsers()).some((user) => user.id === assignee && user.active)) throw new Error('That person no longer has access.')
+    if (phoneKey(input.phone).length !== 10) throw new Error('Enter a valid 10 digit phone number.')
+    const { ids } = await addLeads(
+      [{ date: todayKey(), name: clean(asText(input.name)), phone: input.phone, source: clean(input.source) ?? MANUAL, sourceName: 'Added manually' }],
+      { id: me.id, name: me.name }
+    )
+    if (!ids[0]) throw new Error('A lead with this phone number already exists.')
+    const [lead] = await leadsById(ids)
+    if (assignee) await assignLeads([lead!], [assignee], null, me)
+    const [assigned] = await leadsById(ids)
+    await updateLead(assigned!, changes, null, { ...me, role: 'owner' })
+    return { leadId: lead!.id }
   },
 
   async listCampaigns(viewer) {
@@ -563,15 +496,31 @@ const API: Api = {
 
 export const rpcRouter = Router()
 
+const SEEN_FOR = 6 * 3_600_000
+const seen = new Map<string, { at: number; data: unknown }>()
+const TRANSIENT = /fetch failed|network|timed? ?out|ECONN|socket|unavailable|too many|try again/i
+
 // Errors come back as { ok: false } with HTTP 200, as the frontend expects.
 rpcRouter.post('/', async (req, res) => {
   try {
-    const { action, args, token } = (req.body ?? {}) as { action?: string; args?: unknown[]; token?: unknown }
+    const { action, args, token, id } = (req.body ?? {}) as { action?: string; args?: unknown[]; token?: unknown; id?: unknown }
     const fn = action ? API[action] : undefined
     if (!fn) throw new Error('Unknown action.')
-    const data = await fn(await sessionOf(token), ...(Array.isArray(args) ? args : []))
-    res.json({ ok: true, data: data ?? null })
+    const key = typeof id === 'string' && id ? id : null
+    const replay = key ? seen.get(key) : undefined
+    if (replay) {
+      res.json({ ok: true, data: replay.data })
+      return
+    }
+    const data = (await fn(await sessionOf(token), ...(Array.isArray(args) ? args : []))) ?? null
+    if (key) {
+      const now = Date.now()
+      for (const [old, entry] of seen) if (now - entry.at > SEEN_FOR) seen.delete(old)
+      seen.set(key, { at: now, data })
+    }
+    res.json({ ok: true, data })
   } catch (error) {
-    res.json({ ok: false, error: (error as Error).message })
+    const message = (error as Error).message
+    res.json({ ok: false, error: message, retry: TRANSIENT.test(message) })
   }
 })

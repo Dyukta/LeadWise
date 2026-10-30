@@ -4,7 +4,6 @@ import { useAddUser, useUsers } from '@hooks/useUsers'
 import { validateEmail } from '@logic/rules/credentials'
 import type { Role } from '@logic/rules/session'
 import { userName } from '@logic/users/userTypes'
-import { ProjectPicker } from '@pages/users/ProjectPicker'
 import { Button } from '@shared/ui/Button'
 import { Checkbox } from '@shared/ui/Checkbox'
 import { Input } from '@shared/ui/Input'
@@ -25,9 +24,7 @@ export function AddUserDialog({
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<Role>('employee')
   const [takeOverFrom, setTakeOverFrom] = useState('')
-  const [keep, setKeep] = useState(true)
   const [deactivate, setDeactivate] = useState(false)
-  const [projectIds, setProjectIds] = useState<string[]>([])
 
   const createdId = add.createdId
   const busy = add.isPending
@@ -43,9 +40,7 @@ export function AddUserDialog({
     setFullName('')
     setRole('employee')
     setTakeOverFrom('')
-    setKeep(true)
     setDeactivate(false)
-    setProjectIds([])
     onClose()
   }
 
@@ -58,9 +53,7 @@ export function AddUserDialog({
         fullName: fullName.trim(),
         role,
         leaving,
-        keep,
-        deactivate,
-        projectIds: role === 'employee' ? projectIds : null
+        deactivate
       },
       { onSuccess: close }
     )
@@ -99,7 +92,6 @@ export function AddUserDialog({
             { value: 'owner', label: 'Owner' }
           ]}
         />
-        <ProjectPicker owner={role === 'owner'} picked={projectIds} onChange={setProjectIds} disabled={locked} />
 
         <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <Select
@@ -118,39 +110,23 @@ export function AddUserDialog({
             <>
               <p className="text-xs text-slate-500">
                 {leavingName}&apos;s open leads{' '}
-                {keep
-                  ? 'are shared with this new user.'
-                  : "move to this new user. Closed and lost leads don't move."}
+                move to this new user. Closed and lost leads don&apos;t move.
               </p>
               <label className="flex items-center gap-2 text-xs text-slate-600">
                 <Checkbox
-                  checked={keep}
-                  disabled={locked}
-                  onChange={(next) => {
-                    setKeep(next)
-                    if (next) setDeactivate(false)
-                  }}
-                  label={`Share instead (${leavingName} keeps them too)`}
-                />
-                Share instead ({leavingName} keeps them too)
-              </label>
-              <label className="flex items-center gap-2 text-xs text-slate-600">
-                <Checkbox
                   checked={deactivate}
-                  disabled={locked || keep}
+                  disabled={locked}
                   onChange={setDeactivate}
                   label={`Deactivate ${leavingName} after moving`}
                 />
-                <span className={keep ? 'text-slate-400' : undefined}>
-                  Deactivate {leavingName} after moving (they can&apos;t sign in)
-                </span>
+                <span>Deactivate {leavingName} after moving (they can&apos;t sign in)</span>
               </label>
             </>
           )}
         </div>
 
         <p className="text-xs text-slate-500">
-          We email them an invite to set a password. They can also continue with Google using this email.
+          They sign in with Continue with Google using this email.
         </p>
 
         {failure && (
@@ -168,9 +144,7 @@ export function AddUserDialog({
         <Button type="submit" form="add-user" disabled={busy || !canSubmit}>
           {busy
             ? takeOverFrom
-              ? keep
-                ? 'Sharing…'
-                : 'Moving…'
+              ? 'Moving…'
               : 'Adding…'
             : createdId
               ? 'Retry handover'

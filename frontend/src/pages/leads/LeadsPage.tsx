@@ -1,16 +1,14 @@
-import { CalendarClock, FileSpreadsheet, Flame, UserPlus, Users } from 'lucide-react'
+import { CalendarClock, Flame, UserPlus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { useLeads } from '@hooks/useLeads'
-import { useActiveProjectNames, useMyProjectNames } from '@hooks/useProjects'
 import { useSession } from '@hooks/useSession'
 import type { Lead, LeadFilters as Filters, LeadsView } from '@logic/leads/leadTypes'
 import { distinctValues } from '@logic/rules/requirements'
 import { allowedLeadsViews } from '@logic/rules/session'
 import { AssignLeadDialog } from '@pages/leads/AssignLeadDialog'
 import { EditLeadDialog } from '@pages/leads/EditLeadDialog'
-import { ImportLeadsDialog } from '@pages/leads/ImportLeadsDialog'
 import { LeadDrawer } from '@pages/leads/LeadDrawer'
 import { LeadFilters } from '@pages/leads/LeadFilters'
 import { LeadTable } from '@pages/leads/LeadTable'
@@ -44,23 +42,11 @@ export function LeadsPage() {
   const view = requested && views.includes(requested) ? requested : 'mine'
 
   const [month, setMonth] = useState('')
-  const [ownFilters, setFilters] = useState<Filters>({})
-
-  const project = searchParams.get('project') ?? ''
-  const setProject = (next: string) => {
-    const params: Record<string, string> = { view }
-    if (next) params.project = next
-    setSearchParams(params)
-  }
-
-  const filters = useMemo<Filters>(
-    () => ({ ...ownFilters, project: project || undefined }),
-    [ownFilters, project]
-  )
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null)
+  const [filters, setFilters] = useState<Filters>({})
   const [selected, setSelected] = useState<Lead | null>(null)
   const [assigning, setAssigning] = useState<Lead[] | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
-  const [uploading, setUploading] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const assign = (leads: Lead[]) => {
@@ -68,20 +54,9 @@ export function LeadsPage() {
     setSelected(null)
   }
 
-  const leads = useLeads(view, filters, month ? { month } : {})
+  const leads = useLeads(view, filters, range ?? (month ? { month } : {}))
   const rows = leads.leads
 
-  const myProjects = useMyProjectNames()
-  const allProjects = useActiveProjectNames()
-  const projectNames = useMemo(() => {
-    if (myProjects) return [...myProjects].sort((a, b) => a.localeCompare(b))
-
-    const seen = new Set(allProjects.map((name) => name.toLowerCase()))
-    const strays = distinctValues(rows, (lead) => lead.project).filter(
-      (name) => !seen.has(name.toLowerCase())
-    )
-    return [...allProjects, ...strays].sort((a, b) => a.localeCompare(b))
-  }, [myProjects, allProjects, rows])
   const sourceOptions = useMemo(
     () => distinctValues(leads.data?.leads ?? [], (lead) => lead.source).map((value) => ({ value, label: value })),
     [leads.data]
@@ -96,6 +71,7 @@ export function LeadsPage() {
     [rows]
   )
   const followUpsDue = useMemo(() => countFollowUpsDue(rows), [rows])
+  const selectable = useMemo(() => rows.filter((lead) => lead.canAssign), [rows])
 
   const assignFrom = (lead: Lead) => {
     const picked = selectedIds.includes(lead.id)
@@ -106,18 +82,12 @@ export function LeadsPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Leads</h1>
-        <Button variant="secondary" onClick={() => setUploading(true)}>
-          <FileSpreadsheet className="h-4 w-4" />
-          Upload Excel
-        </Button>
-      </header>
+      <h1 className="text-2xl font-bold text-ink sm:text-3xl">Leads</h1>
       <div className="flex flex-wrap items-stretch gap-3">
         <SegmentedControl
           value={view}
           onChange={(option) => {
-            setSearchParams(project ? { view: option, project } : { view: option })
+            setSearchParams({ view: option })
             setSelectedIds([])
           }}
           options={views.map((option) => ({ value: option, label: viewLabels[option] }))}
@@ -132,7 +102,7 @@ export function LeadsPage() {
           icon={Users}
         />
         <StatTile
-          label="High priority"
+          label="Hot leads"
           value={highPriority}
           loading={leads.isPending}
           tone="rose"
@@ -149,18 +119,21 @@ export function LeadsPage() {
       <LeadFilters
         filters={filters}
         onChange={(next) => {
-          const { project: picked, ...rest } = next
-          if ((picked ?? '') !== project) setProject(picked ?? '')
-          setFilters(rest)
+          setFilters(next)
           setSelectedIds([])
         }}
-        months={leads.months}
-        projects={projectNames}
         sources={sourceOptions}
         campaigns={campaignOptions}
         month={month}
         onMonthChange={(next) => {
           setMonth(next)
+          setRange(null)
+          setSelectedIds([])
+        }}
+        range={range}
+        onRangeChange={(next) => {
+          setRange(next)
+          setMonth('')
           setSelectedIds([])
         }}
       />
@@ -169,6 +142,15 @@ export function LeadsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
           <p className="text-sm font-semibold text-brand-800">
             {pluralize(selectedIds.length, 'lead')} selected
+            {selectedIds.length < selectable.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(selectable.map((lead) => lead.id))}
+                className="ml-3 font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-900"
+              >
+                Select all {selectable.length}
+              </button>
+            )}
           </p>
           <div className="flex items-center gap-2">
             <Button variant="ghostDanger" size="sm" onClick={() => setSelectedIds([])}>
@@ -209,8 +191,6 @@ export function LeadsPage() {
       />
 
       {editing && <EditLeadDialog lead={editing} onClose={() => setEditing(null)} />}
-
-      {uploading && <ImportLeadsDialog onClose={() => setUploading(false)} />}
 
       {assigning && (
         <AssignLeadDialog

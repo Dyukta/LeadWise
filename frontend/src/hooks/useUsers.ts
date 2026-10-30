@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { setUserProjects } from '@logic/projects/projectsApi'
 import type { Role } from '@logic/rules/session'
 import { createUser, deleteUser, handOver, listUsers, updateUser } from '@logic/users/usersApi'
 import { userName, type AppUser } from '@logic/users/userTypes'
@@ -29,42 +28,33 @@ function useUserWrite<Input, Result>(write: (input: Input) => Promise<Result>, d
   })
 }
 
-type ProjectAccess = { projectIds: string[] | null }
-
-async function saveUser({ projectIds, ...input }: Parameters<typeof updateUser>[0] & ProjectAccess) {
-  await updateUser(input)
-  if (projectIds) await setUserProjects(input.id, projectIds)
-}
-
 export function useUpdateUser() {
-  return useUserWrite(saveUser, 'User updated')
+  return useUserWrite(updateUser, 'User updated')
 }
 
 export function useDeleteUser() {
   return useUserWrite(deleteUser, 'User deleted')
 }
 
-const handoverMessage = (moved: number, from: string, to: string, keep: boolean) =>
+const handoverMessage = (moved: number, from: string, to: string) =>
   moved === 0
     ? `${from} had no open leads to move`
-    : `${pluralize(moved, 'lead')} ${keep ? 'shared with' : 'moved to'} ${to}`
+    : `${pluralize(moved, 'lead')} moved to ${to}`
 
 function useRefreshPeople() {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all }),
       queryClient.invalidateQueries({ queryKey: queryKeys.leads.all })
     ])
 }
 
-type NewUser = ProjectAccess & {
+type NewUser = {
   email: string
   fullName: string
   role: Role
   leaving: AppUser | null
-  keep: boolean
   deactivate: boolean
 }
 
@@ -73,16 +63,15 @@ export function useAddUser() {
   const [createdId, setCreatedId] = useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: async ({ email, fullName, role, leaving, keep, deactivate, projectIds }: NewUser) => {
+    mutationFn: async ({ email, fullName, role, leaving, deactivate }: NewUser) => {
       const id = createdId ?? (await createUser({ email, fullName, role }))
       setCreatedId(id)
-      if (projectIds) await setUserProjects(id, projectIds)
       const name = fullName || email
-      const moved = leaving ? await handOver(leaving, id, keep, deactivate) : null
+      const moved = leaving ? await handOver(leaving, id, deactivate) : null
       return { name, moved }
     },
-    onSuccess: ({ name, moved }, { leaving, keep }) =>
-      toast(moved === null || !leaving ? 'User added' : handoverMessage(moved, userName(leaving), name, keep)),
+    onSuccess: ({ name, moved }, { leaving }) =>
+      toast(moved === null || !leaving ? 'User added' : handoverMessage(moved, userName(leaving), name)),
     onSettled: refresh
   })
 
@@ -98,9 +87,9 @@ export function useHandOver() {
   const refresh = useRefreshPeople()
 
   return useMutation({
-    mutationFn: ({ from, to, keep, deactivate }: { from: AppUser; to: AppUser; keep: boolean; deactivate: boolean }) =>
-      handOver(from, to.id, keep, deactivate),
-    onSuccess: (moved, { from, to, keep }) => toast(handoverMessage(moved, userName(from), userName(to), keep)),
+    mutationFn: ({ from, to, deactivate }: { from: AppUser; to: AppUser; deactivate: boolean }) =>
+      handOver(from, to.id, deactivate),
+    onSuccess: (moved, { from, to }) => toast(handoverMessage(moved, userName(from), userName(to))),
     onSettled: refresh
   })
 }

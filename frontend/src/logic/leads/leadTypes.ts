@@ -1,8 +1,9 @@
+import type { LeadsView } from '@logic/rules/session'
 import type { LeadAssignee } from '@logic/rules/transfer'
 
 export type { LeadAssignee }
 
-export type LeadStatus = string
+type LeadStatus = string
 
 export type LeadHandover = {
   at: string | null
@@ -29,7 +30,6 @@ export type Lead = {
   source: string | null
   sourceName: string | null
   campaign?: string | null
-  project: string | null
   possession: string | null
   status: LeadStatus
   isTerminal: boolean
@@ -58,7 +58,6 @@ export type ClosedDeal = {
 
 export type Performance = {
   mine: ClosedDeal[]
-  board: { name: string; amount: number; you: boolean }[]
 }
 
 export type CallLog = {
@@ -66,8 +65,9 @@ export type CallLog = {
   leadId: string
   leadName: string
   leadPhone?: string | null
-  project: string | null
   campaign: string | null
+  source?: string | null
+  status?: string | null
   userId: string | null
   userName: string | null
 }
@@ -81,7 +81,6 @@ export type RosterMember = {
   id: string
   name: string
   role: 'owner' | 'employee' | string
-  projects: number
 }
 
 export type LeadsResponse = {
@@ -91,7 +90,7 @@ export type LeadsResponse = {
   syncedAt: string | null
 }
 
-export type LeadsView = 'mine' | 'unassigned' | 'others' | 'all'
+export type { LeadsView }
 
 export type LeadsQuery = {
   month?: string
@@ -100,8 +99,8 @@ export type LeadsQuery = {
 }
 
 export type LeadFilters = {
-  project?: string
   priority?: string
+  status?: string
   repeated?: string
   source?: string
   campaign?: string
@@ -121,7 +120,6 @@ export type LeadWriteInput = {
     name: string
     source: string
     sourceName: string
-    project: string
     possession: string
     status: LeadStatus
     priority: 'high' | 'medium' | 'low'

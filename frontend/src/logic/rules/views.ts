@@ -1,25 +1,23 @@
 import { matchesTiming, sortByTiming } from './followUp.ts'
-import { matchesRequirements, type RequirementFilters } from './requirements.ts'
-
-type View = 'mine' | 'unassigned' | 'others' | 'all'
+import type { LeadsView as View } from './session.ts'
 
 function matchesSearch(
-  lead: { name: string; phone: string | null; project: string | null },
+  lead: { name: string; phone: string | null },
   search: string | undefined
 ): boolean {
   const needle = (search ?? '').trim().toLowerCase()
   if (!needle) return true
-  return [lead.name, lead.phone, lead.project].some((field) =>
+  return [lead.name, lead.phone].some((field) =>
     (field ?? '').toLowerCase().includes(needle)
   )
 }
 
 type SelectableLead = {
   view: View
-  project: string | null
   name: string
   phone: string | null
   priority: string | null
+  status?: string
   source?: string | null
   campaign?: string | null
   createdAt: string | null
@@ -27,9 +25,10 @@ type SelectableLead = {
   activity?: { event: string }[]
 }
 
-type LeadSelection = RequirementFilters & {
+type LeadSelection = {
   repeated?: string
   priority?: string
+  status?: string
   source?: string
   campaign?: string
   timing?: string
@@ -45,11 +44,11 @@ export function selectLeads<T extends SelectableLead>(
   const matched = leads.filter(
     (lead) =>
       (view === 'all' || lead.view === view) &&
-      matchesRequirements(lead, filters) &&
       (!filters.repeated ||
         (filters.repeated === 'yes') ===
           !!lead.activity?.some((entry) => entry.event === 'repeat')) &&
       (!filters.priority || lead.priority === filters.priority) &&
+      (!filters.status || lead.status === filters.status) &&
       (!filters.source || lead.source === filters.source) &&
       (!filters.campaign || lead.campaign === filters.campaign) &&
       matchesTiming(lead, filters.timing, now) &&

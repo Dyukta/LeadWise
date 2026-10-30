@@ -4,8 +4,6 @@ import { createPortal } from 'react-dom'
 
 import { useLeads } from '@hooks/useLeads'
 import type { Lead } from '@logic/leads/leadTypes'
-import { sameProject } from '@logic/rules/projects'
-import { distinctValues } from '@logic/rules/requirements'
 import { assigneeNames } from '@logic/rules/transfer'
 import { ContactButtons } from '@pages/leads/ContactButtons'
 import { RepeatedBadge } from '@pages/leads/LeadTable'
@@ -15,7 +13,6 @@ import { compactMoney, formatMoney } from '@shared/lib/format'
 import { DateRangePicker } from '@shared/ui/DateRangePicker'
 import { Input } from '@shared/ui/Input'
 import { SearchInput } from '@shared/ui/SearchInput'
-import { Select } from '@shared/ui/Select'
 import { Table, type Column } from '@shared/ui/Table'
 import { useAnchoredPanel } from '@shared/ui/useAnchoredPanel'
 
@@ -36,7 +33,6 @@ const columns: Column<Booking>[] = [
       </div>
     )
   },
-  { key: 'project', header: 'Project', className: 'whitespace-nowrap', cell: ({ lead }) => lead.project ?? 'N/A' },
   { key: 'by', header: 'Closed by', className: 'whitespace-nowrap', cell: ({ closedBy }) => closedBy },
   { key: 'on', header: 'Closed on', className: 'whitespace-nowrap', cell: ({ closedAt }) => formatDate(closedAt) },
   {
@@ -200,7 +196,6 @@ function AmountFilter({
 export function BookedPage() {
   const leads = useLeads('all')
   const [search, setSearch] = useState('')
-  const [project, setProject] = useState('')
   const [range, setRange] = useState<Range | null>(null)
   const [amount, setAmount] = useState<[number, number] | null>(null)
 
@@ -222,21 +217,19 @@ export function BookedPage() {
 
   const top = Math.max(100000, Math.ceil(Math.max(0, ...bookings.map(({ lead }) => lead.amount ?? 0)) / 100000) * 100000)
   const [low, high] = amount ?? [0, top]
-  const projects = distinctValues(bookings, ({ lead }) => lead.project).map((name) => ({ value: name, label: name }))
 
   const needle = search.trim().toLowerCase()
   const rows = bookings.filter(({ lead, closedBy, closedAt }) => {
     const value = lead.amount ?? 0
     const day = closedAt ? todayKey(new Date(closedAt)) : ''
     return (
-      (!needle || [lead.name, lead.phone, lead.project, closedBy].some((field) => (field ?? '').toLowerCase().includes(needle))) &&
-      (!project || sameProject(lead.project, project)) &&
+      (!needle || [lead.name, lead.phone, closedBy].some((field) => (field ?? '').toLowerCase().includes(needle))) &&
       (!range || (day >= range.from && day <= range.to)) &&
       value >= low &&
       value <= high
     )
   })
-  const activeCount = [needle, project, range, amount].filter(Boolean).length
+  const activeCount = [needle, range, amount].filter(Boolean).length
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -260,7 +253,6 @@ export function BookedPage() {
               type="button"
               onClick={() => {
                 setSearch('')
-                setProject('')
                 setRange(null)
                 setAmount(null)
               }}
@@ -271,14 +263,13 @@ export function BookedPage() {
             </button>
           )}
         </header>
-        <div className="grid grid-cols-1 items-end gap-4 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-5">
+        <div className="grid grid-cols-1 items-end gap-4 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
           <SearchInput
             className="sm:col-span-2 xl:col-span-2"
             aria-label="Search booked deals"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <Select label="Project" placeholder="All projects" options={projects} value={project} onChange={setProject} />
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-slate-700">Closed on</span>
             <DateRangePicker className="w-full" label="Any date" value={range} onChange={setRange} onClear={() => setRange(null)} />

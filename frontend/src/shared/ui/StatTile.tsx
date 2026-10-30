@@ -14,16 +14,18 @@ export function StatTile({
   value,
   loading,
   tone,
-  icon: Icon
+  icon: Icon,
+  detail
 }: {
   label: string
   value: number | string | undefined
   loading: boolean
   tone: keyof typeof statTones
   icon: LucideIcon
+  detail?: string
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 text-sm font-medium text-slate-500">{label}</p>
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${statTones[tone]}`}>
@@ -33,7 +35,12 @@ export function StatTile({
       {loading ? (
         <Skeleton className="mt-3 h-8 w-14" />
       ) : (
-        <p className="mt-2 text-3xl font-bold tabular-nums text-ink">{value ?? 'N/A'}</p>
+        <>
+          <p className="mt-2 truncate text-3xl font-bold tabular-nums text-ink" title={String(value ?? 'N/A')}>
+            {value ?? 'N/A'}
+          </p>
+          {detail && <p className="mt-1 truncate text-sm text-slate-500">{detail}</p>}
+        </>
       )}
     </div>
   )

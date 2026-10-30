@@ -12,14 +12,14 @@ A sales or telecalling team running ads gets dozens of leads a day. Leads that a
 
 I built the frontend, the API, the database schema, the Meta lead sync and the seed data.
 
-* **Leads.** Mine, Unassigned and All views. Filter by project, priority, repeat enquiries, month or date range. Edit, assign, reassign or bulk assign.
-* **Fair distribution.** The owner splits the day's unassigned leads evenly across chosen people in one click.
-* **Status rules.** There are 13 statuses, from New to Closed. A lost lead needs a reason, a closed lead needs the deal amount, and closed or lost leads are locked.
+* **Leads.** Mine, Unassigned and All views. Filter by status, priority (hot, warm, cold), source, campaign, repeat enquiries, month or a custom date range. Edit, assign, reassign or bulk assign. Each lead has one person handling it.
+* **Fair distribution.** The owner splits the day's unassigned leads evenly across chosen people in one click, or sets a custom count per person.
+* **Status rules.** There are 9 statuses, from New to Investment Done/Closed. A lost lead needs a reason, a closed lead needs the deal amount, and closed or lost leads are locked.
 * **Follow ups.** Grouped into overdue, today and upcoming, so call backs don't get missed.
-* **Calls.** Calling a lead from the app logs the call. The owner also sees the whole team's calls.
-* **Performance.** Closed deal value per person, with a leaderboard. When more than one person worked a lead, the value is split between them.
-* **Excel import.** Finds the name and phone columns by itself and rejects rows without a valid 10 digit number.
-* **Owner tools.** Projects, users (invite, deactivate, hand someone's leads to another person), and campaigns with lead counts and lead quality.
+* **Calls.** Calling a lead from the app logs the call.
+* **Performance.** Each person's leads, calls, closed deals and conversion by source and campaign, with charts. The owner also gets a Team performance page comparing everyone.
+* **Add lead.** Add one lead by hand, upload an Excel sheet (finds the name and phone columns by itself and rejects rows without a valid 10 digit number), or download any filtered set of leads as Excel.
+* **Owner tools.** Users (invite, deactivate, hand someone's leads to another person), and campaigns with lead counts and lead quality.
 * **Sign in.** Email and password or Google. Only people the owner added on the Users page can get in.
 
 ## Keeping costs low with Google Sheets
@@ -38,8 +38,8 @@ This public demo keeps the same frontend and the same caching, with Express and 
 * **One list for every lead.** Meta ads and Excel uploads land in the same place, so nobody copies leads across from Meta by hand.
 * **No duplicate work.** A phone number that is already in the CRM becomes a "repeat enquiry" on the original lead, so two callers never chase the same person.
 * **A full history.** Every assignment, status change and call is logged with who did it, when, the old and new value, and the reason.
-* **Numbers the owner can trust.** A deal can't be closed without an amount or lost without a reason, so the leaderboard and campaign figures come from complete data.
-* **Privacy between callers.** Employees only see their own leads and the unassigned leads in their projects. The server enforces this, not just the UI.
+* **Numbers the owner can trust.** A deal can't be closed without an amount or lost without a reason, so the performance and campaign figures come from complete data.
+* **Privacy between callers.** Employees only see their own leads and the unassigned leads. The server enforces this, not just the UI.
 
 ## Architecture
 
@@ -65,14 +65,14 @@ The React app signs in with Supabase Auth. Every read and write goes to one endp
 
 The actions behind `/api/rpc`:
 
-* **Reads:** `currentSession`, `listLeads`, `performance`, `callStats`, `listProjects`, `listUsers`, `listCampaigns`, `listSources`
-* **Leads:** `writeLead` (update one lead, or assign one or many), `logCall`, `importLeads`
-* **Owner only:** `writeProject`, `createUser`, `updateUser`, `deleteUser`, `setMetaConnected`
+* **Reads:** `currentSession`, `listLeads`, `performance`, `callStats`, `listUsers`, `listCampaigns`, `listSources`
+* **Leads:** `writeLead` (update one lead, or assign one or many), `logCall`, `addLead`, `importLeads`
+* **Owner only:** `createUser`, `updateUser`, `deleteUser`, `setMetaConnected`
 
 ### How requests are handled
 
 * **Who is asking.** The Supabase token is verified on every call, then the user is loaded from the `users` table. A deactivated user is treated as signed out straight away, even if their token is still valid.
-* **What they can see.** An employee only gets their own leads and the unassigned leads in their projects. Owner only actions refuse anyone else with "Only the owner can do that."
+* **What they can see.** An employee only gets their own leads and the unassigned leads, and can only take an unassigned lead for themselves. Owner only actions refuse anyone else with "Only the owner can do that."
 * **Errors people can read.** Every expected failure comes back as `{ ok: false, error }` with a plain sentence, such as "That lead no longer exists." The app shows that sentence to the user as is. If the session has expired, the app signs the user out and sends them to the login page.
 * **Bad requests.** Broken JSON gets a 400, a body over 5 MB gets a 413, an unknown path gets a 404. An unexpected crash is logged on the server, and the user only sees a generic "try again" message, never a stack trace.
 * **Imports in batches.** An Excel upload is capped at 5000 rows and written 500 at a time. Duplicate phone numbers are checked in chunks of 200, so one big file never turns into one giant query.
@@ -104,7 +104,7 @@ Every choice here fits a team of a few people with thousands of leads, not milli
 * **One RPC endpoint instead of REST.** The real project runs on Apps Script, which gives you a single URL. Keeping the same `{ action, args }` contract let this demo swap in a different backend without rewriting the frontend. The cost: no per route HTTP caching, and errors come back with HTTP 200, so standard monitoring won't flag them as failures.
 * **Access rules in the API, not in Postgres.** All visibility rules live in one TypeScript file, which is easy to read and test. Row level security is only used to lock the browser out. The cost: a bug in the API is not caught by the database. With more roles, I'd move the rules into row level security policies.
 * **Filtering in Node, not SQL.** `listLeads` loads the leads and their history, then filters them in the API. It's simple and fast at this size. With hundreds of thousands of leads, I'd move the filters into SQL and paginate.
-* **Arrays instead of join tables.** Lead assignees and project members are `uuid[]` columns. Reading them and splitting deal value is easy. The cost: no foreign keys, so deleting a user has to remove their ID from every lead and project by hand, which the API does.
+* **Arrays instead of join tables.** Lead assignees are a `uuid[]` column. Reading it is easy. The cost: no foreign keys, so deleting a user has to remove their ID from every lead by hand, which the API does.
 * **Polling Meta instead of webhooks.** Leads can take up to 15 minutes to appear, and there's no public webhook endpoint to verify and secure. For faster leads, I'd add webhooks and keep the polling as a safety net.
 * **An in-process lock for the sync.** It stops two syncs from running at once, but only inside one server. With more than one API server, I'd use a Postgres advisory lock.
 * **No build step on the server.** Node runs the TypeScript directly, so deploys are just `npm start`. The cost: it needs Node 22.18 or newer, and can't use TypeScript features that need compiling, such as enums.
@@ -113,4 +113,4 @@ Every choice here fits a team of a few people with thousands of leads, not milli
 
 * **Call duration tracking.** Right now a call is logged when someone taps Call, but the app can't tell a 5 second miss from a 10 minute conversation. Recording how long each call lasted would make the call stats and team performance much more honest.
 * **Bulk WhatsApp messages.** Callers often send the same details or follow up message to many leads by hand. Selecting leads and sending one WhatsApp message to all of them through the WhatsApp Business API would save that time and log each message on the lead.
-* **Tests.** The lead rules (status changes, transfers, follow ups, priority) are plain functions in `frontend/src/logic/rules/`, so they are the obvious place to start. There are no automated tests yet.
+* **Tests.** The lead rules (status changes, transfers, follow ups, priority, performance) are plain functions in `frontend/src/logic/rules/`, so they are the obvious place to start. There are no automated tests yet.

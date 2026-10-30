@@ -11,7 +11,7 @@ const OUTCOMES = [
   {
     key: 'working',
     label: 'In progress',
-    color: 'bg-[#7a63f2]',
+    color: 'bg-[#ebb61e]',
     statuses: ['interested', 'reg_done', 'sent_details', 'call_back_later', 'call_after_some_time']
   },
   { key: 'unanswered', label: 'Unanswered', color: 'bg-[#d97706]', statuses: ['not_answered', 'not_reachable', 'switched_off'] },
@@ -100,7 +100,7 @@ export function CampaignQuality() {
     <section className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="text-lg font-bold text-ink">Leads by campaign</h2>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600">
+        <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">
           {OUTCOMES.map((outcome) => (
             <li key={outcome.key} className="flex items-center gap-1.5">
               <span className={cn('h-2.5 w-2.5 rounded-sm', outcome.color)} />
@@ -129,7 +129,7 @@ export function CampaignQuality() {
                 {[0, 50, 100].map((at) => (
                   <div key={at} className="absolute inset-x-0 border-t border-slate-200" style={{ top: `${at}%` }} />
                 ))}
-                <div className="relative flex h-full items-end justify-around gap-1">
+                <div className="relative flex h-full items-end justify-around gap-2">
                   {rows.map((row, index) => (
                     <div key={row.name} className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end">
                       {hovered?.name === row.name && (
@@ -167,7 +167,7 @@ export function CampaignQuality() {
                   ))}
                 </div>
               </div>
-              <div className="mt-2 flex justify-around gap-1">
+              <div className="mt-2 flex justify-around gap-2">
                 {rows.map((row, index) => (
                   <p
                     key={row.name}
@@ -182,12 +182,12 @@ export function CampaignQuality() {
             </div>
           </div>
 
-          <ol className="mt-4 space-y-1 text-xs text-slate-600 sm:hidden">
+          <ol className="mt-6 divide-y divide-slate-100 border-t border-slate-100 text-xs text-slate-600 sm:hidden">
             {rows.map((row, index) => (
-              <li key={row.name} className="flex gap-2">
-                <span className="w-4 shrink-0 text-right tabular-nums text-slate-400">{index + 1}</span>
+              <li key={row.name} className="flex items-center gap-3 py-2.5">
+                <span className="w-5 shrink-0 text-right tabular-nums text-slate-400">{index + 1}</span>
                 <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                <span className="shrink-0 tabular-nums">{row.total}</span>
+                <span className="shrink-0 font-semibold tabular-nums text-ink">{row.total}</span>
               </li>
             ))}
           </ol>

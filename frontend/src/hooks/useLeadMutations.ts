@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import type { ImportRow } from '@logic/leads/importRows'
-import { assignLeads, importLeads, shareLeads, writeLead } from '@logic/leads/leadsApi'
-import type { Lead, LeadWriteInput, RosterMember } from '@logic/leads/leadTypes'
+import { addLead, assignLeads, importLeads, shareLeads } from '@logic/leads/leadsApi'
 import { pluralize } from '@shared/lib/format'
 import { queryKeys } from '@shared/lib/queryKeys'
 import { toast } from '@shared/lib/toast'
 
-export function useUpdateLead() {
+export { queueLeadUpdate } from '@logic/leads/leadsApi'
+
+export function useAddLead() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: LeadWriteInput) => writeLead(input),
-    onSuccess: () => toast('Lead updated'),
+    mutationFn: addLead,
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.leads.all })
   })
 }
@@ -55,8 +55,8 @@ export function useAssignLeads() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ leads, people }: { leads: Lead[]; people: RosterMember[] }) =>
-      assignLeads(leads, people),
+    mutationFn: ({ groups, names }: { groups: { userId: string; leadIds: string[] }[]; names: Map<string, string> }) =>
+      assignLeads(groups, names),
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.leads.all })
   })
 }

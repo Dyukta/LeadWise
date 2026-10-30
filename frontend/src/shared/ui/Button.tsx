@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@shared/lib/cn'
 
 type Variant = 'primary' | 'secondary' | 'ghostDanger' | 'danger'
-type Size = 'sm' | 'md'
+type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600',
@@ -15,7 +15,8 @@ const variants: Record<Variant, string> = {
 
 const sizes: Record<Size, string> = {
   sm: 'h-9 px-3 text-sm',
-  md: 'h-10 px-4 text-sm'
+  md: 'h-10 px-4 text-sm',
+  lg: 'h-12 px-5 text-base'
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

@@ -96,8 +96,7 @@ async function wipe() {
   const tables: Array<[string, string]> = [
     ['lead_events', 'id'],
     ['leads', 'id'],
-    ['campaigns', 'id'],
-    ['projects', 'id']
+    ['campaigns', 'id']
   ]
   for (const [table, column] of tables) must(await db.from(table).delete().not(column, 'is', null))
 }
@@ -106,17 +105,17 @@ async function insertAll(table: string, rows: Record<string, unknown>[]) {
   for (let i = 0; i < rows.length; i += 500) must(await db.from(table).insert(rows.slice(i, i + 500)))
 }
 
-type Project = { name: string; active: boolean; closedFrom: IsoDate | null; share: number; deal: [number, number]; team: boolean }
+type Budget = { share: number; deal: [number, number] }
 
 const LAKH = 100_000
 
-// deal: closed deal size in lakh. team: the demo employee is a member.
-const PROJECTS: Project[] = [
-  { name: 'Skyline Residency, Andheri West', active: true, closedFrom: null, share: 0.3, deal: [145, 480], team: true },
-  { name: 'Harbour Heights, Chembur', active: true, closedFrom: null, share: 0.22, deal: [115, 360], team: true },
-  { name: 'Lakeview Towers, Thane West', active: true, closedFrom: null, share: 0.28, deal: [78, 240], team: true },
-  { name: 'Palm Grove, Kharghar', active: true, closedFrom: null, share: 0.12, deal: [62, 135], team: false },
-  { name: 'Sea Breeze Residences, Borivali West', active: false, closedFrom: addDays(START, 115), share: 0.08, deal: [185, 375], team: true }
+// deal: closed deal size in lakh.
+const BUDGETS: Budget[] = [
+  { share: 0.3, deal: [145, 480] },
+  { share: 0.22, deal: [115, 360] },
+  { share: 0.28, deal: [78, 240] },
+  { share: 0.12, deal: [62, 135] },
+  { share: 0.08, deal: [185, 375] }
 ]
 
 const FIRST_NAMES = [
@@ -169,28 +168,22 @@ const NOTES = [
   null
 ]
 
-// Stages: unreachable tries, then interested, details sent, registration, closed.
+// Stages: unreachable tries, then details sent, registration, closed.
 const FUNNEL = {
-  won: ['interested', 'sent_details', 'reg_done', 'closed'],
-  engaged: ['interested', 'sent_details', 'reg_done'],
-  cold: ['not_answered', 'call_back_later', 'not_reachable', 'switched_off', 'call_after_some_time']
+  won: ['sent_details', 'reg_done', 'closed'],
+  engaged: ['sent_details', 'reg_done'],
+  cold: ['not_answered', 'not_reachable', 'switched_off', 'call_after_some_time']
 }
-
-const DEAD_ENDS = [['lost', 5], ['not_interested', 4], ['invalid_number', 1]] as const
 
 const STEP_GAP: Record<string, [number, number]> = {
   not_answered: [0, 1],
   not_reachable: [0, 2],
   switched_off: [0, 2],
-  call_back_later: [0, 2],
   call_after_some_time: [1, 4],
-  interested: [0, 3],
-  sent_details: [0, 2],
+  sent_details: [0, 3],
   reg_done: [3, 14],
   closed: [5, 20],
-  lost: [3, 21],
-  not_interested: [0, 5],
-  invalid_number: [0, 1]
+  lost: [3, 21]
 }
 
 function phoneNumber(used: Set<string>): string {
@@ -217,22 +210,14 @@ async function seedLeads(owner: Person, employee: Person) {
     const count = day === TODAY ? Math.max(expected, 5) : expected
 
     for (let n = 0; n < count; n += 1) {
-      const open = PROJECTS.filter((p) => !p.closedFrom || day < p.closedFrom)
-      const project = weighted(open.map((p) => [p, p.share] as const))
+      const budget = weighted(BUDGETS.map((b) => [b, b.share] as const))
       const source = weighted(SOURCES)
       const id = randomUUID()
       const createdAt = stamp(day, weekday === 0 || weekday === 6 ? between(10, 18) : between(9, 21))
       const age = daysBetween(day, TODAY)
       const phone = phoneNumber(usedPhones)
-      const premium = project.deal[1] >= 300 && chance(0.4)
-      const handlers =
-        (age <= 4 && chance(0.6)) || day === TODAY
-          ? []
-          : premium && chance(0.6)
-            ? [owner]
-            : chance(0.06)
-              ? [employee, owner]
-              : [employee]
+      const premium = budget.deal[1] >= 300 && chance(0.4)
+      const handlers = (age <= 4 && chance(0.6)) || day === TODAY ? [] : premium && chance(0.6) ? [owner] : [employee]
 
       const sourceName = pick(source.names)
       const meta = source.platform !== null
@@ -277,12 +262,12 @@ async function seedLeads(owner: Person, employee: Person) {
         const tries = () => [pick(FUNNEL.cold), ...(chance(0.4) ? [pick(FUNNEL.cold)] : [])]
         const path: string[] =
           outcome === 'lost'
-            ? [...pick([tries(), FUNNEL.engaged.slice(0, 1), FUNNEL.engaged.slice(0, 2)]), weighted(DEAD_ENDS)]
+            ? [...pick([tries(), FUNNEL.engaged.slice(0, 1)]), 'lost']
             : outcome === 'engaged'
-              ? FUNNEL.engaged.slice(0, weighted([[1, 4], [2, 4], [3, 2]] as const))
+              ? FUNNEL.engaged.slice(0, weighted([[1, 6], [2, 4]] as const))
               : outcome === 'cold'
                 ? tries()
-                : [...(chance(0.3) ? ['call_back_later'] : []), ...FUNNEL.won]
+                : [...(chance(0.3) ? ['call_after_some_time'] : []), ...FUNNEL.won]
         const handler = handlers[0]!
 
         for (const next of path) {
@@ -290,7 +275,7 @@ async function seedLeads(owner: Person, employee: Person) {
           const at = cursor + between(min, max) * 86_400_000 + between(1, 8) * 3_600_000
           if (at > NOW) break
           if (next === 'lost') lostReason = weighted(LOST_REASONS)
-          if (next === 'closed') amount = Math.round(between(project.deal[0], project.deal[1]) / 5) * 5 * LAKH
+          if (next === 'closed') amount = Math.round(between(budget.deal[0], budget.deal[1]) / 5) * 5 * LAKH
           for (let n = between(1, 3); n > 0; n -= 1) {
             events.push({
               lead_id: id,
@@ -323,9 +308,8 @@ async function seedLeads(owner: Person, employee: Person) {
 
       let assigneeIds = handlers.map((person) => person.id)
       const terminal = status === 'closed' || status === 'lost'
-      const deadEnd = terminal || status === 'not_interested' || status === 'invalid_number'
 
-      if (!deadEnd && handlers.length === 1 && handlers[0] === owner && touched !== null && chance(0.4)) {
+      if (!terminal && handlers.length === 1 && handlers[0] === owner && touched !== null && chance(0.4)) {
         const at = Math.min(touched + between(1, 3) * 86_400_000, NOW)
         assigneeIds = [employee.id]
         events.push({
@@ -343,7 +327,7 @@ async function seedLeads(owner: Person, employee: Person) {
       }
 
       let followUp: string | null = null
-      if (!deadEnd && touched !== null) {
+      if (!terminal && touched !== null) {
         const idle = (NOW - touched) / 86_400_000
         const due = idle < 10 || chance(0.6) ? addDays(TODAY, between(0, 6)) : addDays(TODAY, -between(1, 12))
         followUp = iso(stamp(due, between(10, 19), pick([0, 15, 30, 45])))
@@ -355,11 +339,10 @@ async function seedLeads(owner: Person, employee: Person) {
         name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
         phone,
         phone_key: phoneKey(phone),
-        source: meta ? source.platform : owner.name,
+        source: meta ? source.platform : 'Manually added',
         source_name: sourceName,
         campaign: meta ? sourceName : null,
         meta_id: meta ? `demo-${id}` : null,
-        project: project.name,
         status,
         priority: handlers.length > 0 && chance(0.6) ? weighted([['high', 2], ['medium', 4], ['low', 3]] as const) : null,
         amount,
@@ -374,10 +357,6 @@ async function seedLeads(owner: Person, employee: Person) {
     }
   }
 
-  await insertAll(
-    'projects',
-    PROJECTS.map((p) => ({ name: p.name, active: p.active, member_ids: p.team ? [employee.id] : [] }))
-  )
   await insertAll('leads', leads)
   events.sort((a, b) => String(a.at).localeCompare(String(b.at)))
   await insertAll('lead_events', events)
@@ -388,7 +367,7 @@ async function seedLeads(owner: Person, employee: Person) {
 
   const byStatus = new Map<string, number>()
   for (const lead of leads) byStatus.set(String(lead.status), (byStatus.get(String(lead.status)) ?? 0) + 1)
-  console.log(`  ${PROJECTS.length} projects, ${campaigns.size} campaigns, ${leads.length} leads, ${events.length} lead events`)
+  console.log(`  ${campaigns.size} campaigns, ${leads.length} leads, ${events.length} lead events`)
   console.log(`  ${[...byStatus.entries()].map(([s, n]) => `${s} ${n}`).join(', ')}`)
 }
 

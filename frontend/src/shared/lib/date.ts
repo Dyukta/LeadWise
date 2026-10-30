@@ -47,24 +47,6 @@ export function formatDateTime(value: string | number | Date | null | undefined)
   return date ? dateTimeFormatter.format(date) : 'N/A'
 }
 
-function parsePeriod(period: string): { year: number; month: number } {
-  const [year, month] = period.split('-').map(Number)
-  return { year, month }
-}
-
-function periodLabel(period: string, monthStyle: 'long' | 'short' = 'long'): string {
-  const { year, month } = parsePeriod(period)
-  if (!year || !month) return period
-
-  return new Intl.DateTimeFormat('en-IN', { month: monthStyle, year: 'numeric' }).format(
-    new Date(year, month - 1, 1)
-  )
-}
-
-export function periodOptions(periods: readonly string[] = []): { label: string; value: string }[] {
-  return periods.map((value) => ({ label: periodLabel(value, 'short'), value }))
-}
-
 export function toKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')

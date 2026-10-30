@@ -1,6 +1,6 @@
 import { Building2, Menu } from 'lucide-react'
 import { Suspense, useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 
 import { Sidebar } from '@app/layout/Sidebar'
 import { useSession } from '@hooks/useSession'
@@ -56,7 +56,7 @@ export function AppShell() {
         )}
 
         <main className="scrollbar-thin min-w-0 flex-1 overflow-y-auto">
-          <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+          <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
             <button
               type="button"
               aria-label="Open menu"
@@ -65,10 +65,12 @@ export function AppShell() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Building2 className="h-4 w-4" />
-            </span>
-            <p className="text-sm font-bold text-ink">{env.appName}</p>
+            <Link to="/overview" className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-600 text-white">
+                <Building2 className="h-4 w-4" />
+              </span>
+              <span className="text-sm font-bold text-ink">{env.appName}</span>
+            </Link>
           </div>
           <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-8 sm:py-9 lg:px-12">
             <div key={location.pathname} className="page-in">

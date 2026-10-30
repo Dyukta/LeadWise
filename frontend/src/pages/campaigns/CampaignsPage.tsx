@@ -85,7 +85,7 @@ export function CampaignsPage() {
         />
       </div>
 
-      <Table columns={columns} rows={rows} rowKey={(c) => c.id} isLoading={loading} pageSize={10} emptyMessage="No campaigns here." />
+      <Table columns={columns} rows={rows} rowKey={(c) => c.id} isLoading={loading} emptyMessage="No campaigns here." />
 
       <CampaignQuality />
     </div>

@@ -1,5 +1,6 @@
 import type { Session } from '@logic/rules/session'
 import { call } from '@shared/lib/backend'
+import { flushOutbox } from '@shared/lib/outbox'
 import { readCachedSession, writeCachedSession } from '@shared/lib/sessionCache'
 import { supabase } from '@shared/lib/supabase'
 
@@ -9,6 +10,7 @@ const friendly = (message: string) =>
 export async function fetchSession(): Promise<Session | null> {
   const session = await call<Session | null>('currentSession')
   writeCachedSession(session)
+  void flushOutbox()
   return session
 }
 

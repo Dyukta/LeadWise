@@ -50,7 +50,6 @@ export function LeadDrawer({
           </dd>
         </div>
         <Row label="Phone" value={<span className="whitespace-nowrap">{lead.phone ?? 'N/A'}</span>} />
-        <Row label="Project" value={lead.project ?? 'N/A'} />
         <Row label="Priority" value={lead.priority ? priorityLabel(lead.priority) : 'N/A'} />
         <Row label="Follow up" value={lead.nextFollowUpAt ? formatDateTime(lead.nextFollowUpAt) : 'N/A'} />
         <Row

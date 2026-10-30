@@ -132,7 +132,7 @@ export function LoginPage() {
             {google.isPending ? 'Redirecting…' : 'Continue with Google'}
           </Button>
           <p className="mt-5 text-center text-xs text-slate-500">
-            Accounts are created by the owner. New here? Use the link in your invite email to set a password.
+            Accounts are created by the owner. New here? Continue with Google using the email the owner added.
           </p>
         </AuthCard>
 

@@ -1,9 +1,7 @@
 import { useState } from 'react'
 
-import { useProjects } from '@hooks/useProjects'
 import { useSession } from '@hooks/useSession'
 import { useDeleteUser } from '@hooks/useUsers'
-import { projectsOf } from '@logic/rules/projects'
 import type { AppUser } from '@logic/users/userTypes'
 import { Badge } from '@shared/ui/Badge'
 import { Button } from '@shared/ui/Button'
@@ -23,15 +21,6 @@ export function UserTable({
 }) {
   const { session } = useSession()
   const remove = useDeleteUser()
-  const { projects } = useProjects()
-
-  const projectNames = (user: AppUser) =>
-    user.role === 'owner'
-      ? 'All projects'
-      : projectsOf(projects, user.id)
-          .map((project) => project.name)
-          .join(', ') || 'No projects'
-
   const [confirming, setConfirming] = useState<AppUser | null>(null)
 
   const actions = (user: AppUser) => (
@@ -69,7 +58,6 @@ export function UserTable({
     { key: 'name', header: 'Name', cell: (user) => <span className="font-semibold text-ink">{user.fullName || 'N/A'}</span> },
     { key: 'email', header: 'Email', className: 'wrap-anywhere', cell: (user) => user.email },
     { key: 'role', header: 'Role', cell: roleBadge },
-    { key: 'projects', header: 'Projects', cell: (user) => <span className="text-slate-600">{projectNames(user)}</span> },
     { key: 'status', header: 'Status', cell: statusBadge },
     {
       key: 'actions',
@@ -93,7 +81,6 @@ export function UserTable({
         rowKey={(user) => user.id}
         onRowClick={onEdit}
         isLoading={isLoading}
-        pageSize={10}
         emptyMessage="No users yet."
       />
 
@@ -101,8 +88,8 @@ export function UserTable({
         <Modal open onClose={close} title="Delete user">
           <p className="text-sm text-slate-600">
             Delete <span className="font-medium text-ink">{confirming.email}</span> permanently?
-            Their account and their history in this dashboard go with it. Setting them to Inactive
-            instead keeps the record and blocks sign in.
+            They can no longer sign in and their leads become unassigned. To only block sign in,
+            close this, click Edit and set Status to Inactive.
           </p>
 
           {remove.isError && (

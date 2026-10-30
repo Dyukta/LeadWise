@@ -12,11 +12,6 @@ export const queryKeys = {
     calls: ['leads', 'calls'] as const
   },
 
-  projects: {
-    all: ['projects'] as const,
-    list: () => ['projects', 'list'] as const
-  },
-
   campaigns: {
     list: () => ['campaigns', 'list'] as const,
     sources: () => ['campaigns', 'sources'] as const

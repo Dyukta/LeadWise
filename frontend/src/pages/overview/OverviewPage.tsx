@@ -1,13 +1,11 @@
-import { ArrowRight, BellRing, Building2, Calendar, CalendarClock, CheckCircle2, UserPlus, Users, XCircle } from 'lucide-react'
+import { ArrowRight, BellRing, CalendarClock, CheckCircle2, UserPlus, Users, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useFollowUps } from '@hooks/useFollowUps'
 import { useLeads } from '@hooks/useLeads'
-import { useProjects } from '@hooks/useProjects'
 import { useSession } from '@hooks/useSession'
 import type { Lead } from '@logic/leads/leadTypes'
-import { sameProject } from '@logic/rules/projects'
 import { isOwner } from '@logic/rules/session'
 import { statusLabel } from '@logic/rules/statuses'
 import { leadsPerAssignee } from '@logic/rules/workload'
@@ -15,10 +13,9 @@ import { RepeatedBadge } from '@pages/leads/LeadTable'
 import { LeadHandlerCard } from '@pages/overview/LeadHandlerCard'
 import { MyTodayLeadsCard, TodayLeadsCard } from '@pages/overview/TodayLeadsCard'
 import { cn } from '@shared/lib/cn'
-import { daysUntil, formatDateTime, periodOptions } from '@shared/lib/date'
+import { daysUntil, formatDateTime } from '@shared/lib/date'
 import { pluralize } from '@shared/lib/format'
 import { DateRangePicker } from '@shared/ui/DateRangePicker'
-import { Dropdown } from '@shared/ui/Dropdown'
 import { SegmentedControl } from '@shared/ui/SegmentedControl'
 import { Skeleton } from '@shared/ui/Skeleton'
 import { StatTile } from '@shared/ui/StatTile'
@@ -52,18 +49,8 @@ export function OverviewPage() {
   const query = useMemo(() => (range ?? (period ? { month: period } : {})), [range, period])
 
   const leads = useLeads('all', undefined, query)
-  const projectList = useProjects()
-  const monthOptions = [{ value: '', label: 'All months' }, ...periodOptions(leads.months)]
 
-  const [projectFilter, setProjectFilter] = useState('')
-
-  const allLeads: Lead[] = useMemo(
-    () =>
-      projectFilter
-        ? leads.leads.filter((lead) => sameProject(lead.project, projectFilter))
-        : leads.leads,
-    [leads.leads, projectFilter]
-  )
+  const allLeads: Lead[] = leads.leads
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const lead of allLeads) counts.set(lead.status, (counts.get(lead.status) ?? 0) + 1)
@@ -78,20 +65,9 @@ export function OverviewPage() {
 
   const leadsLoading = leads.isPending
 
-  const failure = [leads, projectList].find((result) => result.isError)?.error as
-    | Error
-    | undefined
+  const failure = leads.isError ? (leads.error as Error) : undefined
 
   const loads = useMemo(() => leadsPerAssignee(allLeads), [allLeads])
-  const myProjects = useMemo(() => {
-    const active = projectList.projects.filter((project) => project.active)
-    if (owner) return active
-    const id = session?.userId
-    return id ? active.filter((project) => project.memberIds.includes(id)) : []
-  }, [projectList.projects, owner, session?.userId])
-
-  const projectsOf = (userId: string) =>
-    leads.roster.find((person) => person.id === userId)?.projects ?? 0
 
   const hello = useMemo(
     () => `${greeting(new Date().getHours())}, ${firstName(session?.fullName)}`,
@@ -100,11 +76,7 @@ export function OverviewPage() {
 
   const followUps = useFollowUps()
   const [dueTab, setDueTab] = useState<'today' | 'overdue' | 'upcoming'>('today')
-  const due = useMemo(() => {
-    const pick = (list: Lead[]) =>
-      projectFilter ? list.filter((lead) => sameProject(lead.project, projectFilter)) : list
-    return { overdue: pick(followUps.overdue), today: pick(followUps.today), upcoming: pick(followUps.upcoming) }
-  }, [followUps.overdue, followUps.today, followUps.upcoming, projectFilter])
+  const due = { overdue: followUps.overdue, today: followUps.today, upcoming: followUps.upcoming }
   const dueRows = due[dueTab]
 
   return (
@@ -113,36 +85,21 @@ export function OverviewPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink sm:text-3xl">{hello}</h1>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-          <Dropdown
-            className="min-w-0 sm:w-44"
-            icon={Calendar}
-            value={period}
-            onChange={(value) => {
-              setPeriod(value)
+        <div className="flex items-center">
+          <DateRangePicker
+            className="min-w-0 sm:w-48"
+            label="All months"
+            value={range}
+            onChange={(next) => {
+              setRange(next)
+              setPeriod('')
+            }}
+            onClear={() => setRange(null)}
+            period={period}
+            onPeriodChange={(next) => {
+              setPeriod(next)
               setRange(null)
             }}
-            options={monthOptions}
-          />
-          {myProjects.length > 0 && (
-            <Dropdown
-              className="order-last col-span-2 sm:order-none sm:col-span-1 sm:w-44"
-              icon={Building2}
-              tone="brand"
-              active={Boolean(projectFilter)}
-              value={projectFilter}
-              onChange={setProjectFilter}
-              options={[
-                { value: '', label: 'All projects' },
-                ...myProjects.map((project) => ({ value: project.name, label: project.name }))
-              ]}
-            />
-          )}
-          <DateRangePicker
-            className="min-w-0 sm:w-44"
-            value={range}
-            onChange={setRange}
-            onClear={() => setRange(null)}
           />
         </div>
       </header>
@@ -234,7 +191,6 @@ export function OverviewPage() {
                       </div>
                       <p className="truncate text-xs text-slate-600">
                         {formatDateTime(lead.nextFollowUpAt)} · {statusLabel(lead.status)}
-                        {lead.project ? ` · ${lead.project}` : ''}
                       </p>
                     </div>
                     <span className={cn('shrink-0 text-xs font-semibold', due.tone)}>
@@ -255,13 +211,12 @@ export function OverviewPage() {
           ) : loads.length === 0 ? (
             <p className="flex flex-1 items-center justify-center py-8 text-center text-sm text-slate-400">Nobody is handling leads yet.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="scrollbar-thin max-h-[28rem] space-y-3 overflow-y-auto">
               {loads.map((row) => (
                 <LeadHandlerCard
                   key={row.assigneeId}
                   name={row.assigneeName}
                   leads={row.leads}
-                  projects={projectsOf(row.assigneeId)}
                 />
               ))}
             </div>

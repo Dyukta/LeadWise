@@ -1,9 +1,9 @@
-import { AlarmClock, CalendarCheck, CalendarClock, Pencil } from 'lucide-react'
+import { AlarmClock, CalendarCheck, CalendarClock, CircleDot, Pencil } from 'lucide-react'
 import { useState } from 'react'
 
 import { useFollowUps } from '@hooks/useFollowUps'
 import type { Lead } from '@logic/leads/leadTypes'
-import { statusLabel } from '@logic/rules/statuses'
+import { LEAD_STATUSES, statusLabel } from '@logic/rules/statuses'
 import { assigneeNames } from '@logic/rules/transfer'
 import { ContactButtons } from '@pages/leads/ContactButtons'
 import { EditLeadDialog } from '@pages/leads/EditLeadDialog'
@@ -14,6 +14,7 @@ import { pluralize } from '@shared/lib/format'
 import { Badge } from '@shared/ui/Badge'
 import { Button } from '@shared/ui/Button'
 import { DateRangePicker } from '@shared/ui/DateRangePicker'
+import { Dropdown } from '@shared/ui/Dropdown'
 import { SegmentedControl } from '@shared/ui/SegmentedControl'
 import { StatTile } from '@shared/ui/StatTile'
 import { Table, type Column } from '@shared/ui/Table'
@@ -33,6 +34,7 @@ export function FollowUpsPage() {
   const [picked, setTab] = useState<Tab | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [range, setRange] = useState<{ from: string; to: string } | null>(null)
+  const [status, setStatus] = useState('')
 
   const columns: Column<Lead>[] = [
     {
@@ -70,7 +72,6 @@ export function FollowUpsPage() {
         </Badge>
       )
     },
-    { key: 'project', header: 'Project', cell: (lead) => lead.project ?? 'N/A' },
     ...(followUps.owner
       ? [{ key: 'who', header: 'Assigned to', cell: (lead: Lead) => assigneeNames(lead.assignees) || 'Unassigned' }]
       : []),
@@ -97,9 +98,11 @@ export function FollowUpsPage() {
     }
   ]
 
-  const tab: Tab = picked ?? (followUps.overdue.length > 0 ? 'overdue' : 'today')
+  const only = (list: Lead[]) => (status ? list.filter((lead) => lead.status === status) : list)
+  const groups = { overdue: only(followUps.overdue), today: only(followUps.today), upcoming: only(followUps.upcoming) }
+  const tab: Tab = picked ?? (groups.overdue.length > 0 ? 'overdue' : 'today')
   const rows = range
-    ? [...followUps.overdue, ...followUps.today, ...followUps.upcoming].filter((lead) => {
+    ? [...groups.overdue, ...groups.today, ...groups.upcoming].filter((lead) => {
         const key = todayKey(new Date(lead.nextFollowUpAt!))
         return key >= range.from && key <= range.to
       })
@@ -112,9 +115,9 @@ export function FollowUpsPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
-        <StatTile label="Overdue" value={followUps.overdue.length} loading={followUps.isPending} tone="rose" icon={AlarmClock} />
-        <StatTile label="Due today" value={followUps.today.length} loading={followUps.isPending} tone="amber" icon={CalendarCheck} />
-        <StatTile label="Upcoming" value={followUps.upcoming.length} loading={followUps.isPending} tone="indigo" icon={CalendarClock} />
+        <StatTile label="Overdue" value={groups.overdue.length} loading={followUps.isPending} tone="rose" icon={AlarmClock} />
+        <StatTile label="Due today" value={groups.today.length} loading={followUps.isPending} tone="amber" icon={CalendarCheck} />
+        <StatTile label="Upcoming" value={groups.upcoming.length} loading={followUps.isPending} tone="indigo" icon={CalendarClock} />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -125,12 +128,20 @@ export function FollowUpsPage() {
             if (next !== 'range') setTab(next)
           }}
           options={[
-            { value: 'overdue', label: `Overdue (${followUps.overdue.length})` },
-            { value: 'today', label: `Today (${followUps.today.length})` },
-            { value: 'upcoming', label: `Upcoming (${followUps.upcoming.length})` }
+            { value: 'overdue', label: `Overdue (${groups.overdue.length})` },
+            { value: 'today', label: `Today (${groups.today.length})` },
+            { value: 'upcoming', label: `Upcoming (${groups.upcoming.length})` }
           ]}
         />
         <DateRangePicker className="min-w-0 sm:w-48" value={range} onChange={setRange} onClear={() => setRange(null)} />
+        <Dropdown
+          className="min-w-0 sm:w-56"
+          icon={CircleDot}
+          active={Boolean(status)}
+          value={status}
+          onChange={setStatus}
+          options={[{ value: '', label: 'All statuses' }, ...LEAD_STATUSES.map((value) => ({ value, label: statusLabel(value) }))]}
+        />
       </div>
 
       {followUps.error && <p className="text-sm text-red-600">{followUps.error.message}</p>}

@@ -1,4 +1,4 @@
-export const LEAD_STATUSES = ['new', 'call_after_some_time', 'call_back_later', 'interested', 'invalid_number', 'lost', 'not_answered', 'not_interested', 'not_reachable', 'reg_done', 'sent_details', 'switched_off', 'closed'] as const
+export const LEAD_STATUSES = ['new', 'not_answered', 'call_after_some_time', 'sent_details', 'lost', 'not_reachable', 'switched_off', 'reg_done', 'closed'] as const
 
 const LEAD_PRIORITIES = ['high', 'medium', 'low'] as const
 

@@ -1,12 +1,12 @@
-import { ArrowRight, Check, Shuffle, Timer, Users } from 'lucide-react'
+import { ArrowRight, Shuffle, Timer, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useShareLeads } from '@hooks/useLeadMutations'
 import { useLeads } from '@hooks/useLeads'
-import { splitByCounts } from '@logic/rules/transfer'
-import { cn } from '@shared/lib/cn'
-import { todayKey } from '@shared/lib/date'
+import { useTeamSplit } from '@hooks/useTeamSplit'
+import { TeamSplitPicker } from '@pages/leads/TeamSplit'
+import { formatDate, todayKey } from '@shared/lib/date'
 import { pluralize } from '@shared/lib/format'
 import { Button } from '@shared/ui/Button'
 import { Modal } from '@shared/ui/Modal'
@@ -45,7 +45,9 @@ function SyncTimer({ syncedAt }: { syncedAt: string | null }) {
 function CardTitle({ syncedAt }: { syncedAt: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <h2 className="text-lg font-bold text-white">Today&apos;s leads</h2>
+      <h2 className="text-lg font-bold text-white">
+        Today&apos;s leads <span className="font-semibold text-white/70">· {formatDate(new Date())}</span>
+      </h2>
       <SyncTimer syncedAt={syncedAt} />
     </div>
   )
@@ -103,8 +105,6 @@ export function MyTodayLeadsCard() {
 export function TodayLeadsCard() {
   const leads = useLeads('all')
   const sharing = useShareLeads()
-  const [picked, setPicked] = useState<string[]>([])
-  const [counts, setCounts] = useState<Record<string, number>>({})
   const [open, setOpen] = useState(false)
   const busy = sharing.isPending
 
@@ -115,30 +115,12 @@ export function TodayLeadsCard() {
   )
   const waiting = todays.filter((lead) => lead.view === 'unassigned')
   const team = leads.roster
-
-  const waitingIds = waiting.map((lead) => lead.id)
-  const even = (index: number) => Math.floor(waiting.length / picked.length) + (index < waiting.length % picked.length ? 1 : 0)
-  const countFor = (id: string) => counts[id] ?? even(picked.indexOf(id))
-  const total = picked.reduce((sum, id) => sum + countFor(id), 0)
-  const over = total - waiting.length
-  const plan = splitByCounts(waitingIds, picked.map((userId) => ({ userId, count: countFor(userId) })))
-  const allPicked = team.length > 0 && picked.length === team.length
-
-  const pick = (ids: string[]) => {
-    setPicked(ids)
-    setCounts({})
-  }
-
-  const toggle = (id: string) => pick(picked.includes(id) ? picked.filter((v) => v !== id) : [...picked, id])
-
-  const setCount = (id: string, value: string) => {
-    const count = Number(value.replace(/\D/g, '').slice(0, 4)) || 0
-    setCounts(Object.fromEntries(picked.map((userId) => [userId, userId === id ? count : countFor(userId)])))
-  }
+  const split = useTeamSplit(waiting.map((lead) => lead.id))
+  const plan = split.plan
 
   const close = () => {
     setOpen(false)
-    pick([])
+    split.pick([])
   }
 
   const distribute = () => sharing.mutate(plan, { onSuccess: close })
@@ -184,94 +166,21 @@ export function TodayLeadsCard() {
               <Button variant="secondary" onClick={close} disabled={busy}>
                 Cancel
               </Button>
-              <Button onClick={distribute} disabled={busy || plan.length === 0 || over > 0}>
+              <Button onClick={distribute} disabled={busy || plan.length === 0 || split.over > 0}>
                 <Shuffle className="h-4 w-4" />
                 {busy ? 'Distributing…' : 'Distribute'}
               </Button>
             </>
           }
         >
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-slate-700">Pick who gets today&apos;s leads</p>
-            {team.length > 0 && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => pick(allPicked ? [] : team.map((person) => person.id))}
-                className="text-sm font-semibold text-brand-700 hover:text-brand-800"
-              >
-                {allPicked ? 'Clear all' : 'Select all'}
-              </button>
-            )}
-          </div>
-          {team.length === 0 && <p className="text-sm text-slate-500">No active users yet. Add one on the Users page.</p>}
-          <ul className="scrollbar-thin max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
-            {team.map((person) => {
-              const on = picked.includes(person.id)
-              return (
-                <li key={person.id} className={cn('flex items-center pr-3', on && 'bg-brand-50')}>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    aria-pressed={on}
-                    onClick={() => toggle(person.id)}
-                    className={cn(
-                      'flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors',
-                      !on && 'hover:bg-slate-50'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                        on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300'
-                      )}
-                    >
-                      {on && <Check className="h-3 w-3" strokeWidth={3} />}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-medium text-ink">{person.name}</span>
-                  </button>
-                  {on && (
-                    <label className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-brand-700">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        disabled={busy}
-                        value={countFor(person.id)}
-                        onChange={(event) => setCount(person.id, event.target.value)}
-                        aria-label={`Leads for ${person.name}`}
-                        className="w-14 rounded-lg border border-slate-300 bg-white px-2 py-1 text-center text-sm text-ink outline-none focus:border-brand-500"
-                      />
-                      leads
-                    </label>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {picked.length > 0 && (
-            <div className="mt-3 flex items-center justify-between gap-3 text-xs">
-              {over > 0 ? (
-                <p role="alert" className="font-medium text-red-600">
-                  {pluralize(over, 'lead')} more than the {waiting.length} waiting. Lower a number.
-                </p>
-              ) : (
-                <p className="text-slate-500">
-                  {total} of {waiting.length} assigned
-                  {total < waiting.length && ` · ${waiting.length - total} stay unassigned`}
-                </p>
-              )}
-              {Object.keys(counts).length > 0 && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setCounts({})}
-                  className="shrink-0 font-semibold text-brand-700 hover:text-brand-800"
-                >
-                  Split equally
-                </button>
-              )}
-            </div>
-          )}
+          <TeamSplitPicker
+            split={split}
+            team={team}
+            heading="Pick who gets today's leads"
+            noun="waiting"
+            rest="stay unassigned"
+            busy={busy}
+          />
         </Modal>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { BadgeCheck, Building2, CalendarClock, LayoutDashboard, List, LogOut, Megaphone, Moon, PanelLeftClose, PanelLeftOpen, Phone, PhoneCall, Settings, Sun, Trophy, UserPlus, Users, type LucideIcon } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarClock, ChartColumn, CirclePlus, LayoutDashboard, List, LogOut, Megaphone, Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, Trophy, UserPlus, Users, type LucideIcon } from 'lucide-react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 
 import { useFollowUps } from '@hooks/useFollowUps'
@@ -54,14 +54,12 @@ export function Sidebar({
   const groups: NavGroup[] = [
     {
       heading: null,
-      items: [
-        { label: 'Overview', icon: LayoutDashboard, to: '/overview' },
-        { label: 'My performance', icon: Trophy, to: '/performance' }
-      ]
+      items: [{ label: 'Overview', icon: LayoutDashboard, to: '/overview' }]
     },
     {
       heading: 'Leads',
       items: [
+        { label: 'All Leads', icon: List, to: '/leads?view=all', view: 'all' },
         { label: 'My Leads', icon: Users, to: '/leads?view=mine', view: 'mine' },
         {
           label: 'Unassigned',
@@ -77,24 +75,20 @@ export function Sidebar({
           badge: followUps.overdue.length + followUps.today.length
         },
         { label: 'Booked', icon: BadgeCheck, to: '/booked' },
-        { label: 'Calls', icon: Phone, to: '/calls' },
-        {
-          label: 'All Leads',
-          icon: List,
-          to: '/leads?view=all',
-          view: 'all'
-        }
+        { label: 'Leads', icon: CirclePlus, to: '/add-lead' }
       ]
     },
     {
-      heading: 'Marketing',
-      items: [{ label: 'Campaigns', icon: Megaphone, to: '/campaigns', ownerOnly: true }]
+      heading: 'Performance',
+      items: [
+        { label: 'My performance', icon: Trophy, to: '/performance' },
+        { label: 'Team performance', icon: ChartColumn, to: '/team-performance', ownerOnly: true },
+        { label: 'Campaigns', icon: Megaphone, to: '/campaigns', ownerOnly: true }
+      ]
     },
     {
-      heading: 'Management',
+      heading: 'Settings',
       items: [
-        { label: 'Team calls', icon: PhoneCall, to: '/team-calls', ownerOnly: true },
-        { label: 'Projects', icon: Building2, to: '/projects', ownerOnly: true },
         { label: 'Users', icon: Users, to: '/users', ownerOnly: true },
         { label: 'Account', icon: Settings, to: '/account' }
       ]
@@ -113,22 +107,22 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'shrink-0 select-none flex-col bg-gradient-to-b from-brand-900 via-brand-950 to-brand-950 text-white',
+        'shrink-0 select-none flex-col bg-gradient-to-b from-brand-700 via-brand-800 to-brand-900 text-white',
         'fixed inset-y-0 left-0 z-50 w-[272px] lg:static lg:z-auto lg:flex',
         menuOpen ? 'flex' : 'hidden',
         collapsed ? 'lg:w-[76px]' : 'lg:w-[272px]'
       )}
     >
       <div className={cn('flex items-center gap-3 px-4 py-4', collapsed && 'justify-center px-0')}>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">
-          <Building2 className="h-[18px] w-[18px]" />
-        </div>
+        <Link to="/overview" onClick={onCloseMenu} className={cn('flex min-w-0 items-center gap-3', !collapsed && 'flex-1')}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-500 text-brand-950">
+            <Building2 className="h-[18px] w-[18px]" />
+          </span>
+          {!collapsed && <span className="min-w-0 flex-1 text-sm font-bold leading-tight text-white">{env.appName}</span>}
+        </Link>
 
         {!collapsed && (
           <>
-            <p className="min-w-0 flex-1 text-sm font-bold leading-tight text-white">
-              {env.appName}
-            </p>
             <ToggleButton collapsed={collapsed} onToggle={onToggle} />
           </>
         )}
@@ -168,7 +162,7 @@ export function Sidebar({
       <ThemeSwitch collapsed={collapsed} />
       <div className="mx-4 mb-4 rounded-2xl bg-white/5 p-3">
         <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold uppercase text-white">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-500 text-xs font-bold uppercase text-brand-950">
             {initialsOf(session)}
           </div>
           {!collapsed && (
@@ -244,7 +238,7 @@ function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
         aria-hidden
         className={cn(
           'absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full',
-          'bg-gradient-to-r from-brand-600 to-brand-700 shadow-lg shadow-brand-950/50',
+          'bg-accent-500 shadow-lg shadow-brand-950/50',
           'transition-transform duration-300 ease-out motion-reduce:transition-none',
           dark && 'translate-x-full'
         )}
@@ -268,7 +262,7 @@ function ThemeFace({
     <span
       className={cn(
         'relative z-10 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold transition-colors duration-300',
-        active ? 'text-white' : 'text-white/60'
+        active ? 'text-brand-950' : 'text-white/60'
       )}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -314,11 +308,11 @@ function NavRow({
         'outline-none focus-visible:ring-2 focus-visible:ring-white/50',
         collapsed && 'justify-center px-0',
         active
-          ? 'bg-brand-600 font-semibold text-white shadow-sm shadow-brand-950/30'
-          : 'font-medium text-white/70 hover:bg-brand-600/25 hover:text-white'
+          ? 'bg-accent-500 font-semibold text-brand-950 shadow-sm shadow-brand-950/30'
+          : 'font-medium text-white/70 hover:bg-white/10 hover:text-white'
       )}
     >
-      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-white' : 'text-white/60')} />
+      <Icon className={cn('h-4 w-4 shrink-0', active ? 'text-brand-950' : 'text-white/60')} />
 
       {!collapsed && (
         <>
@@ -326,8 +320,8 @@ function NavRow({
           {badge !== undefined && badge > 0 && (
             <span
               className={cn(
-                'rounded-full px-2 py-0.5 text-2xs font-bold text-white',
-                active ? 'bg-white/25' : 'bg-brand-600'
+                'rounded-full px-2 py-0.5 text-2xs font-bold',
+                active ? 'bg-brand-950/20 text-brand-950' : 'bg-accent-500 text-brand-950'
               )}
             >
               {badge}

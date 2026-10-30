@@ -2,8 +2,13 @@ import { Check, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { useAssignLeads } from '@hooks/useLeadMutations'
+import { useSession } from '@hooks/useSession'
+import { useTeamSplit } from '@hooks/useTeamSplit'
 import type { Lead, RosterMember } from '@logic/leads/leadTypes'
+import { isOwner } from '@logic/rules/session'
+import { isTerminalStatus } from '@logic/rules/statuses'
 import { assigneeNames, canAssign } from '@logic/rules/transfer'
+import { TeamSplitPicker } from '@pages/leads/TeamSplit'
 import { cn } from '@shared/lib/cn'
 import { pluralize } from '@shared/lib/format'
 import { toast } from '@shared/lib/toast'
@@ -22,41 +27,42 @@ export function AssignLeadDialog({
   onClose: () => void
 }) {
   const assign = useAssignLeads()
+  const { session } = useSession()
+  const people = isOwner(session) ? roster : roster.filter((person) => person.id === session?.userId)
 
   const isBulk = leads.length > 1
   const single = leads[0]
 
-  const [picked, setPicked] = useState<string[]>(() =>
-    isBulk || !single
-      ? []
-      : single.assignees.map((person) => person.id).filter((id): id is string => id !== null)
-  )
+  const [picked, setPicked] = useState<string[]>(() => {
+    const current = single?.assignees[0]?.id
+    return !isBulk && current && people.some((person) => person.id === current) ? [current] : []
+  })
   const [failures, setFailures] = useState<string[]>([])
   const busy = assign.isPending
 
-  const toggle = (id: string) =>
-    setPicked((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
-    )
 
+  const open = leads.filter((lead) => !isTerminalStatus(lead.status))
+  const split = useTeamSplit(open.map((lead) => lead.id))
+  const plan = isBulk ? split.plan : picked.length ? [{ userId: picked[0]!, leadIds: open.map((lead) => lead.id) }] : []
+  const targetOf = new Map(plan.flatMap((group) => group.leadIds.map((id) => [id, group.userId] as const)))
   const checks = leads.map((lead) => ({
     lead,
-    check: canAssign({ status: lead.status, assignees: lead.assignees, toUserIds: picked })
+    check: canAssign({ status: lead.status, assignees: lead.assignees, toUserId: targetOf.get(lead.id) ?? (isBulk ? split.picked[0] : picked[0]) ?? null })
   }))
-  const eligible = checks.filter((entry) => entry.check.ok).map((entry) => entry.lead)
-  const ineligible = checks.flatMap((entry) =>
-    entry.check.ok ? [] : [`${entry.lead.name}: ${entry.check.reason}`]
-  )
+  const ineligible = checks.flatMap((entry) => (entry.check.ok ? [] : [`${entry.lead.name}: ${entry.check.reason}`]))
+  const skip = new Set(checks.filter((entry) => !entry.check.ok).map((entry) => entry.lead.id))
+  const groups = plan
+    .map((group) => ({ ...group, leadIds: group.leadIds.filter((id) => !skip.has(id)) }))
+    .filter((group) => group.leadIds.length > 0)
   const firstRefusal = checks.find((entry) => !entry.check.ok)?.check
-  const blocked = eligible.length === 0 && firstRefusal && !firstRefusal.ok ? firstRefusal : null
-
-  const targets = roster.filter((owner) => picked.includes(owner.id))
+  const blocked = groups.length === 0 && firstRefusal && !firstRefusal.ok ? firstRefusal : null
+  const nameOf = (id: string) => roster.find((person) => person.id === id)?.name ?? 'Someone'
 
   const submit = () => {
-    if (blocked || targets.length === 0 || eligible.length === 0 || busy) return
+    if (blocked || groups.length === 0 || busy) return
     setFailures([])
     assign.mutate(
-      { leads: eligible, people: targets },
+      { groups, names: new Map(leads.map((lead) => [lead.id, lead.name])) },
       {
         onSuccess: ({ done, refused }) => {
           const skipped = [...ineligible, ...refused]
@@ -88,12 +94,12 @@ export function AssignLeadDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={Boolean(blocked) || targets.length === 0 || busy}
+            disabled={Boolean(blocked) || groups.length === 0 || busy || (isBulk && split.over > 0)}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {busy
               ? isBulk
-                ? `Assigning ${pluralize(eligible.length, 'lead')}…`
+                ? `Assigning ${pluralize(groups.reduce((sum, group) => sum + group.leadIds.length, 0), 'lead')}…`
                 : 'Assigning…'
               : verb}
           </Button>
@@ -101,51 +107,38 @@ export function AssignLeadDialog({
       }
     >
       <div className="space-y-3">
-        {isBulk ? (
-          <div>
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-ink">{pluralize(leads.length, 'lead')}</span>{' '}
-              selected.
-            </p>
-            <ul className="scrollbar-thin mt-2 max-h-32 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              {leads.map((lead) => (
-                <li key={lead.id} className="truncate py-0.5">
-                  {lead.name}
-                  {lead.assignees.length > 0 && (
-                    <span className="text-slate-400"> · {assigneeNames(lead.assignees)}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          single && (
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-ink">{single.name}</span>
-              {single.assignees.length > 0 ? (
-                <> is currently with {assigneeNames(single.assignees)}.</>
-              ) : (
-                <> is unassigned.</>
-              )}
-            </p>
-          )
+        {!isBulk && single && (
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-ink">{single.name}</span>
+            {single.assignees.length > 0 ? <> is currently with {assigneeNames(single.assignees)}.</> : <> is unassigned.</>}
+          </p>
         )}
 
+        {isBulk ? (
+          <TeamSplitPicker
+            split={split}
+            team={people}
+            heading="Pick who gets these leads"
+            noun="selected"
+            rest="stay as they are"
+            busy={busy}
+          />
+        ) : (
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-slate-700">
-            Handled by <span className="text-xs font-normal text-slate-400">(pick one or more)</span>
+            Handled by
           </span>
-          {roster.length === 0 ? (
+          {people.length === 0 ? (
             <p className="text-sm text-slate-500">Nobody is active.</p>
           ) : (
             <ul className="scrollbar-thin max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-300">
-              {roster.map((owner) => {
+              {people.map((owner) => {
                 const on = picked.includes(owner.id)
                 return (
                   <li key={owner.id}>
                     <button
                       type="button"
-                      onClick={() => toggle(owner.id)}
+                      onClick={() => setPicked([owner.id])}
                       aria-pressed={on}
                       className={cn(
                         'flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors',
@@ -154,13 +147,19 @@ export function AssignLeadDialog({
                     >
                       <span
                         className={cn(
-                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                          'flex h-4 w-4 shrink-0 items-center justify-center border',
+                          isBulk ? 'rounded' : 'rounded-full',
                           on ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300'
                         )}
                       >
                         {on && <Check className="h-3 w-3" />}
                       </span>
                       <span className="truncate">{owner.name}</span>
+                      {isBulk && on && (
+                        <span className="text-xs font-semibold text-brand-700">
+                          {pluralize(groups.find((group) => group.userId === owner.id)?.leadIds.length ?? 0, 'lead')}
+                        </span>
+                      )}
                       {owner.role === 'owner' && (
                         <span className="ml-auto text-2xs uppercase tracking-wide text-slate-400">
                           owner
@@ -172,18 +171,14 @@ export function AssignLeadDialog({
               })}
             </ul>
           )}
-          {targets.length > 1 && (
-            <p className="text-xs text-slate-500">
-              All {targets.length} will see this lead under My leads and can work it.
-            </p>
-          )}
         </div>
+        )}
 
-        {picked.length > 0 && blocked && !blocked.ok && (
+        {(isBulk ? split.picked : picked).length > 0 && blocked && !blocked.ok && (
           <p className="text-sm text-red-600">{blocked.reason}</p>
         )}
 
-        {picked.length > 0 && !blocked && ineligible.length > 0 && (
+        {(isBulk ? split.picked : picked).length > 0 && !blocked && ineligible.length > 0 && (
           <p className="text-sm text-amber-700">
             {pluralize(ineligible.length, 'lead')} will be skipped: {ineligible.join('; ')}
           </p>
@@ -192,7 +187,7 @@ export function AssignLeadDialog({
         {busy && (
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-            Assigning to {targets.map((owner) => owner.name).join(', ')}…
+            Assigning to {groups.map((group) => nameOf(group.userId)).join(', ')}…
           </p>
         )}
 

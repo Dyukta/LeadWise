@@ -8,7 +8,6 @@ export type IncomingLead = {
   phone?: unknown
   source?: string | null
   sourceName?: string | null
-  project?: string | null
   possession?: string | null
   campaign?: string | null
   metaId?: string | null
@@ -54,7 +53,6 @@ export async function addLeads(incoming: IncomingLead[], by: Actor) {
       phone_key: key,
       source: clean(row.source),
       source_name: clean(row.sourceName),
-      project: clean(row.project),
       possession,
       campaign: clean(row.campaign),
       meta_id: row.metaId ?? null,
@@ -82,6 +80,7 @@ export async function addLeads(incoming: IncomingLead[], by: Actor) {
 
   return {
     added: added.length,
+    ids: added.map((lead) => lead.id as string),
     existing,
     months: [...new Set(fresh.map((row) => String(row.lead_date).slice(0, 7)))]
   }

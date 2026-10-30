@@ -1,39 +1,33 @@
 export const LEAD_STATUSES = [
   'new',
-  'call_after_some_time',
-  'call_back_later',
-  'interested',
-  'invalid_number',
-  'lost',
   'not_answered',
-  'not_interested',
-  'not_reachable',
-  'reg_done',
+  'call_after_some_time',
   'sent_details',
+  'lost',
+  'not_reachable',
   'switched_off',
+  'reg_done',
   'closed'
 ] as const
 
-type LeadStatus = (typeof LEAD_STATUSES)[number]
-
-const labels: Record<LeadStatus, string> = {
+const labels: Record<string, string> = {
   new: 'New',
+  not_answered: 'Not answered',
   call_after_some_time: 'Call after some time',
+  sent_details: 'Details shared',
+  lost: 'Lost',
+  not_reachable: 'Not reachable',
+  switched_off: 'Switched Off',
+  reg_done: 'Registration Done/Token amt taken',
+  closed: 'Investment Done/Closed',
   call_back_later: 'Call back later',
   interested: 'Interested',
   invalid_number: 'Invalid Number',
-  lost: 'Lost',
-  not_answered: 'Not Answered',
-  not_interested: 'Not Interested',
-  not_reachable: 'Not Reachable',
-  reg_done: 'Reg Done',
-  sent_details: 'Sent Details',
-  switched_off: 'Switched Off',
-  closed: 'Closed'
+  not_interested: 'Not Interested'
 }
 
 export function statusLabel(status: string): string {
-  return labels[status as LeadStatus] ?? status
+  return labels[status] ?? status
 }
 
 export function isTerminalStatus(status: string): boolean {

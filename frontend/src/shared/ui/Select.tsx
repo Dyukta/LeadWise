@@ -5,8 +5,6 @@ import { createPortal } from 'react-dom'
 import { cn } from '@shared/lib/cn'
 import { useAnchoredPanel } from '@shared/ui/useAnchoredPanel'
 
-type SelectOption = { value: string; label: string; short?: string; icon?: ReactNode }
-
 export function Select({
   label,
   options,
@@ -15,23 +13,22 @@ export function Select({
   onChange,
   error,
   disabled,
-  className,
-  id,
-  searchable = false
+  searchable = false,
+  clearable = true,
+  action
 }: {
   label?: string
-  options: SelectOption[]
+  options: { value: string; label: string }[]
   placeholder?: string
   value: string
   onChange: (value: string) => void
   error?: string
   disabled?: boolean
-  className?: string
-  id?: string
   searchable?: boolean
+  clearable?: boolean
+  action?: ReactNode
 }) {
-  const generatedId = useId()
-  const selectId = id ?? generatedId
+  const selectId = useId()
   const errorId = `${selectId}-error`
 
   const { isOpen, setIsOpen, position, triggerRef, panelRef } = useAnchoredPanel()
@@ -51,11 +48,14 @@ export function Select({
   }
 
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={selectId} className="text-sm font-medium text-slate-700">
-          {label}
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor={selectId} className="text-sm font-medium text-slate-700">
+            {label}
+          </label>
+          {action}
+        </div>
       )}
 
       <button
@@ -79,9 +79,8 @@ export function Select({
           isOpen && 'border-brand-500 ring-2 ring-brand-100'
         )}
       >
-        {selected?.icon}
         <span className={cn('min-w-0 flex-1 truncate', selected ? 'text-slate-900' : 'text-slate-400')}>
-          {selected ? (selected.short ?? selected.label) : placeholder}
+          {selected?.label ?? placeholder}
         </span>
         <ChevronDown
           className={cn('h-4 w-4 shrink-0 text-slate-400 transition-transform', isOpen && 'rotate-180')}
@@ -124,7 +123,7 @@ export function Select({
               </div>
             )}
 
-            {placeholder && !needle && (
+            {clearable && placeholder && !needle && (
               <button
                 type="button"
                 role="option"
@@ -160,7 +159,6 @@ export function Select({
                     isSelected && 'bg-brand-50 font-semibold text-brand-700'
                   )}
                 >
-                  {option.icon}
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
                   {isSelected && <Check className="h-4 w-4 shrink-0" />}
                 </button>

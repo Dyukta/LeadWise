@@ -84,11 +84,6 @@ const baseColumns: Column<Lead>[] = [
     )
   },
   {
-    key: 'project',
-    header: 'Project',
-    cell: (lead) => lead.project ?? 'N/A'
-  },
-  {
     key: 'priority',
     header: 'Priority',
     className: 'whitespace-nowrap',
@@ -113,18 +108,27 @@ const baseColumns: Column<Lead>[] = [
     header: 'Next Follow Up',
     className: 'whitespace-nowrap',
     cell: (lead) => (
-      <div>
-        <p className={cn(lead.nextFollowUpAt && isOverdue(lead.nextFollowUpAt) && 'font-semibold text-red-600')}>
-          {lead.nextFollowUpAt ? formatDate(lead.nextFollowUpAt) : 'N/A'}
-        </p>
-        <p className="text-xs text-slate-400">updated {formatDate(lead.updatedAt)}</p>
-      </div>
+      <p className={cn(lead.nextFollowUpAt && isOverdue(lead.nextFollowUpAt) && 'font-semibold text-red-600')}>
+        {lead.nextFollowUpAt ? formatDate(lead.nextFollowUpAt) : 'N/A'}
+      </p>
     )
   },
   {
     key: 'owner',
     header: 'Assigned To',
     cell: (lead) => (lead.assignees.length === 0 ? 'Unassigned' : assigneeNames(lead.assignees))
+  },
+  {
+    key: 'notes',
+    header: 'Notes',
+    cell: (lead) =>
+      lead.notes ? (
+        <p title={lead.notes} className="line-clamp-2 max-w-56 wrap-break-word text-slate-600">
+          {lead.notes}
+        </p>
+      ) : (
+        'N/A'
+      )
   }
 ]
 

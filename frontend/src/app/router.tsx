@@ -21,17 +21,14 @@ const PerformancePage = lazy(() =>
 const BookedPage = lazy(() =>
   import('@pages/booked/BookedPage').then((m) => ({ default: m.BookedPage }))
 )
-const ProjectsPage = lazy(() =>
-  import('@pages/projects/ProjectsPage').then((m) => ({ default: m.ProjectsPage }))
+const AddLeadPage = lazy(() =>
+  import('@pages/add-lead/AddLeadPage').then((m) => ({ default: m.AddLeadPage }))
 )
 const CampaignsPage = lazy(() =>
   import('@pages/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage }))
 )
-const CallsPage = lazy(() =>
-  import('@pages/calls/CallsPage').then((m) => ({ default: m.CallsPage }))
-)
-const TeamCallsPage = lazy(() =>
-  import('@pages/calls/CallsPage').then((m) => ({ default: m.TeamCallsPage }))
+const TeamPerformancePage = lazy(() =>
+  import('@pages/performance/TeamPerformancePage').then((m) => ({ default: m.TeamPerformancePage }))
 )
 const AccountPage = lazy(() =>
   import('@pages/account/AccountPage').then((m) => ({ default: m.AccountPage }))
@@ -56,8 +53,10 @@ export function AppRouter() {
           <Route index element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<OverviewPage />} />
           <Route path="/leads" element={<LeadsPage />} />
-          <Route path="/follow-ups" element={<FollowUpsPage />} />
+          <Route path="/add-lead" element={<AddLeadPage />} />
+          <Route path="/follow-ups"element={<FollowUpsPage />} />
           <Route path="/booked" element={<BookedPage />} />
+          <Route path="/download" element={<Navigate to="/add-lead?tab=download" replace />} />
           <Route path="/performance" element={<PerformancePage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route
@@ -68,20 +67,13 @@ export function AppRouter() {
               </RequireOwner>
             }
           />
-          <Route path="/calls" element={<CallsPage />} />
+          <Route path="/calls" element={<Navigate to="/performance" replace />} />
+          <Route path="/team-calls" element={<Navigate to="/team-performance" replace />} />
           <Route
-            path="/team-calls"
+            path="/team-performance"
             element={
               <RequireOwner>
-                <TeamCallsPage />
-              </RequireOwner>
-            }
-          />
-          <Route
-            path="/projects"
-            element={
-              <RequireOwner>
-                <ProjectsPage />
+                <TeamPerformancePage />
               </RequireOwner>
             }
           />

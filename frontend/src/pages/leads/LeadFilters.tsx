@@ -4,14 +4,16 @@ import { useState } from 'react'
 import type { LeadFilters as Filters } from '@logic/leads/leadTypes'
 import { LEAD_TIMINGS, timingLabel } from '@logic/rules/followUp'
 import { LEAD_PRIORITIES, priorityLabel } from '@logic/rules/priority'
-import { periodOptions } from '@shared/lib/date'
+import { LEAD_STATUSES, statusLabel } from '@logic/rules/statuses'
 import { Button } from '@shared/ui/Button'
+import { DateRangePicker } from '@shared/ui/DateRangePicker'
 import { Modal } from '@shared/ui/Modal'
 import { SearchInput } from '@shared/ui/SearchInput'
 import { Select } from '@shared/ui/Select'
 
 const timingOptions = LEAD_TIMINGS.map((value) => ({ value, label: timingLabel(value) }))
 const priorityOptions = LEAD_PRIORITIES.map((value) => ({ value, label: priorityLabel(value) }))
+const statusOptions = LEAD_STATUSES.map((value) => ({ value, label: statusLabel(value) }))
 const repeatedOptions = [
   { value: 'yes', label: 'Repeated only' },
   { value: 'no', label: 'Not repeated' }
@@ -21,10 +23,10 @@ type Setter = (key: keyof Filters) => (value: string) => void
 
 type SelectProps = {
   filters: Filters
-  months: string[]
   month: string
   onMonthChange: (month: string) => void
-  projects: string[]
+  range: { from: string; to: string } | null
+  onRangeChange: (range: { from: string; to: string } | null) => void
   sources: { value: string; label: string }[]
   campaigns: { value: string; label: string }[]
 }
@@ -130,29 +132,27 @@ export function LeadFilters({
 function FilterSelects({
   filters,
   set,
-  months,
   month,
   onMonthChange,
-  projects,
+  range,
+  onRangeChange,
   sources,
   campaigns
 }: SelectProps & { set: Setter }) {
   return (
     <>
-      <Select
-        label="Month"
-        placeholder="All months"
-        options={periodOptions(months)}
-        value={month}
-        onChange={onMonthChange}
-      />
-      <Select
-        label="Project"
-        placeholder="All projects"
-        options={projects.map((name) => ({ value: name, label: name }))}
-        value={filters.project ?? ''}
-        onChange={set('project')}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-slate-700">Date</span>
+        <DateRangePicker
+          className="w-full"
+          label="All months"
+          value={range}
+          onChange={onRangeChange}
+          onClear={() => onRangeChange(null)}
+          period={month}
+          onPeriodChange={onMonthChange}
+        />
+      </div>
       <Select
         label="Source"
         placeholder="All sources"
@@ -168,6 +168,13 @@ function FilterSelects({
         value={filters.campaign ?? ''}
         searchable={campaigns.length > 8}
         onChange={set('campaign')}
+      />
+      <Select
+        label="Status"
+        placeholder="Any status"
+        options={statusOptions}
+        value={filters.status ?? ''}
+        onChange={set('status')}
       />
       <Select
         label="Priority"

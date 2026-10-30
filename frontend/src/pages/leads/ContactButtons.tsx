@@ -1,6 +1,6 @@
 import { Phone } from 'lucide-react'
 
-import { useLogCall } from '@hooks/useCalls'
+import { queueCall } from '@hooks/useCalls'
 import type { Lead } from '@logic/leads/leadTypes'
 
 const iconLink =
@@ -15,7 +15,6 @@ function dialNumber(phone: string): string {
 }
 
 export function ContactButtons({ lead }: { lead: Lead }) {
-  const logCall = useLogCall()
   if (!lead.phone) return null
   const number = dialNumber(lead.phone)
 
@@ -23,7 +22,7 @@ export function ContactButtons({ lead }: { lead: Lead }) {
     <span className="inline-flex items-center gap-1.5">
       <a
         href={`tel:+${number}`}
-        onClick={() => logCall.mutate(lead.id)}
+        onClick={() => queueCall(lead.id)}
         title={`Call ${lead.phone}`}
         aria-label={`Call ${lead.name}`}
         className={`${iconLink} bg-sky-500`}
