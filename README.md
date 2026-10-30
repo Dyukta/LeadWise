@@ -2,7 +2,7 @@
 
 A lead management CRM for sales and telecalling teams. Leads arrive from Facebook and Instagram ads and from Excel sheets, the owner hands them out, and each caller calls, follows up and closes their own.
 
-> **This is a demo with fake data.** Leadwise is a public copy of an internal CRM I built for a real company. Every person, phone number, project, campaign and deal amount here is made up by the seed script. No company data is in this repo. The Meta lead sync is the real code, but it is not connected in the demo.
+> **This is a demo with fake data.** Leadwise is a public copy of an internal CRM I built for a real company. Every person, phone number, campaign and deal amount here is made up by the seed script. No company data is in this repo. The Meta lead sync is the real code, but it is not connected in the demo.
 
 ## The problem
 
@@ -107,6 +107,7 @@ Every choice here fits a team of a few people with thousands of leads, not milli
 * **Filtering in Node, not SQL.** `listLeads` loads the leads and their history, then filters them in the API. It's simple and fast at this size. With hundreds of thousands of leads, I'd move the filters into SQL and paginate.
 * **Arrays instead of join tables.** Lead assignees are a `uuid[]` column. Reading it is easy. The cost: no foreign keys, so deleting a user has to remove their ID from every lead by hand, which the API does.
 * **Polling Meta instead of webhooks.** Leads can take up to 15 minutes to appear, and there's no public webhook endpoint to verify and secure. For faster leads, I'd add webhooks and keep the polling as a safety net.
+* **In-process memory for retried writes.** The API remembers each change id for 6 hours so a retry is not saved twice. That memory is lost on restart and not shared between servers. With more servers, I'd keep the ids in a table.
 * **An in-process lock for the sync.** It stops two syncs from running at once, but only inside one server. With more than one API server, I'd use a Postgres advisory lock.
 * **No build step on the server.** Node runs the TypeScript directly, so deploys are just `npm start`. The cost: it needs Node 22.18 or newer, and can't use TypeScript features that need compiling, such as enums.
 
