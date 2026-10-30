@@ -17,6 +17,7 @@ I built the frontend, the API, the database schema, the Meta lead sync and the s
 * **Status rules.** There are 9 statuses, from New to Investment Done/Closed. A lost lead needs a reason, a closed lead needs the deal amount, and closed or lost leads are locked.
 * **Follow ups.** Grouped into overdue, today and upcoming, so call backs don't get missed.
 * **Calls.** Calling a lead from the app logs the call.
+* **Works on a bad connection.** Status changes and calls are saved in the browser first and sent in the background, retrying until the server confirms. Each change carries an id, so a retry never saves it twice.
 * **Performance.** Each person's leads, calls, closed deals and conversion by source and campaign, with charts. The owner also gets a Team performance page comparing everyone.
 * **Add lead.** Add one lead by hand, upload an Excel sheet (finds the name and phone columns by itself and rejects rows without a valid 10 digit number), or download any filtered set of leads as Excel.
 * **Owner tools.** Users (invite, deactivate, hand someone's leads to another person), and campaigns with lead counts and lead quality.
