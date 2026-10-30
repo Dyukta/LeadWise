@@ -37,19 +37,19 @@ const columns: Column<Booking>[] = [
   { key: 'on', header: 'Closed on', className: 'whitespace-nowrap', cell: ({ closedAt }) => formatDate(closedAt) },
   {
     key: 'amount',
-    header: <span className="block text-right">Amount</span>,
+    header: 'Amount',
     cell: ({ lead }) => (
-      <span className="block text-right font-semibold tabular-nums text-ink">
+      <span className="font-semibold tabular-nums text-ink">
         {lead.amount ? formatMoney(lead.amount) : 'N/A'}
       </span>
     )
   },
   {
     key: 'action',
-    header: <span className="block text-right">Action</span>,
+    header: 'Action',
     mobile: 'bare',
     cell: ({ lead }) => (
-      <div className="flex justify-end">
+      <div className="flex">
         <ContactButtons lead={lead} />
       </div>
     )

@@ -21,8 +21,8 @@ const columns: Column<CampaignRow>[] = [
   { key: 'name', header: 'Campaign', cell: (row) => <span className="font-medium text-ink">{row.name}</span> },
   {
     key: 'leads',
-    header: <span className="block text-right">Leads</span>,
-    cell: (row) => <span className="block text-right tabular-nums text-slate-600">{row.leads}</span>
+    header: 'Leads',
+    cell: (row) => <span className="tabular-nums text-slate-600">{row.leads}</span>
   }
 ]
 

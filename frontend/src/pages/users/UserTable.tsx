@@ -62,9 +62,8 @@ export function UserTable({
     {
       key: 'actions',
       header: '',
-      className: 'text-right',
       mobile: 'bare',
-      cell: (user) => <div className="flex justify-end gap-2 max-xl:[&>*]:flex-1">{actions(user)}</div>
+      cell: (user) => <div className="flex gap-2 max-xl:[&>*]:flex-1">{actions(user)}</div>
     }
   ]
 

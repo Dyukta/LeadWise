@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 export function Screen({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-full items-center justify-center bg-canvas bg-[radial-gradient(40rem_28rem_at_50%_-10%,var(--color-brand-200),transparent_65%)] p-4 sm:p-6">
+    <main className="flex min-h-full items-center justify-center bg-canvas bg-[radial-gradient(40rem_28rem_at_50%_-10%,var(--color-brand-200),transparent_65%)] p-4 dark:bg-none sm:p-6">
       {children}
     </main>
   )

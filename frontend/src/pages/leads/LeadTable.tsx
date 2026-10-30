@@ -155,9 +155,9 @@ export function LeadTable({
       key: 'assign',
       header: 'Action',
       mobile: 'bare',
-      className: 'whitespace-nowrap text-right',
+      className: 'whitespace-nowrap',
       cell: (lead) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
           <ContactButtons lead={lead} />
           <div className="flex items-center gap-2">
             {lead.canEdit && (

@@ -8,17 +8,16 @@ import type { Column } from '@shared/ui/Table'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-const right = (text: string) => <span className="block text-right">{text}</span>
-const number = (value: number) => <span className="block text-right tabular-nums text-slate-700">{value}</span>
+const number = (value: number) => <span className="tabular-nums text-slate-700">{value}</span>
 
 export const breakdownColumns = (title: string): Column<Breakdown>[] => [
   { key: 'name', header: title, mobile: 'title', cell: (row) => <span className="font-semibold text-ink">{row.name}</span> },
-  { key: 'leads', header: right('Leads'), cell: (row) => number(row.leads) },
-  { key: 'closed', header: right('Closed'), cell: (row) => number(row.closed) },
+  { key: 'leads', header: 'Leads', cell: (row) => number(row.leads) },
+  { key: 'closed', header: 'Closed', cell: (row) => number(row.closed) },
   {
     key: 'conversion',
-    header: right('Conversion'),
-    cell: (row) => <span className="block text-right font-semibold tabular-nums text-ink">{percent(row)}</span>
+    header: 'Conversion',
+    cell: (row) => <span className="font-semibold tabular-nums text-ink">{percent(row)}</span>
   }
 ]
 
@@ -38,19 +37,19 @@ export type Employee = { id: string; name: string; leads: number; closed: number
 
 export const employeeColumns: Column<Employee>[] = [
   { key: 'name', header: 'Person', mobile: 'title', cell: (row) => <span className="font-semibold text-ink">{row.name}</span> },
-  { key: 'leads', header: right('Leads'), cell: (row) => number(row.leads) },
-  { key: 'calls', header: right('Calls'), cell: (row) => number(row.calls) },
-  { key: 'closed', header: right('Closed'), cell: (row) => number(row.closed) },
+  { key: 'leads', header: 'Leads', cell: (row) => number(row.leads) },
+  { key: 'calls', header: 'Calls', cell: (row) => number(row.calls) },
+  { key: 'closed', header: 'Closed', cell: (row) => number(row.closed) },
   {
     key: 'conversion',
-    header: right('Conversion'),
-    cell: (row) => <span className="block text-right font-semibold tabular-nums text-ink">{percent(row)}</span>
+    header: 'Conversion',
+    cell: (row) => <span className="font-semibold tabular-nums text-ink">{percent(row)}</span>
   }
 ]
 
 export const callerColumns: Column<Employee>[] = [
   { key: 'name', header: 'Name', mobile: 'title', cell: (row) => <span className="font-semibold text-ink">{row.name}</span> },
-  { key: 'calls', header: right('Calls'), cell: (row) => <span className="block text-right font-semibold tabular-nums text-ink">{row.calls}</span> },
+  { key: 'calls', header: 'Calls', cell: (row) => <span className="font-semibold tabular-nums text-ink">{row.calls}</span> },
   { key: 'last', header: 'Last call', className: 'whitespace-nowrap', cell: (row) => (row.lastCallAt ? formatDateTime(row.lastCallAt) : 'N/A') }
 ]
 
@@ -88,7 +87,7 @@ export const boardColumns: Column<BoardRow>[] = [
   },
   {
     key: 'amount',
-    header: right('Amount closed'),
-    cell: (row) => <span className="block text-right font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</span>
+    header: 'Amount closed',
+    cell: (row) => <span className="font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</span>
   }
 ]

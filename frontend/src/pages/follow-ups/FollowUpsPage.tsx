@@ -82,10 +82,10 @@ export function FollowUpsPage() {
     },
     {
       key: 'action',
-      header: <span className="block text-right">Action</span>,
+      header: 'Action',
       mobile: 'bare',
       cell: (lead) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
           <ContactButtons lead={lead} />
           {lead.canEdit && (
             <Button variant="secondary" size="sm" onClick={() => setEditing(lead)}>
